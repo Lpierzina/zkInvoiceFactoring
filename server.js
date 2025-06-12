@@ -26,9 +26,11 @@ threshold_percent = ${threshold_percent}
 
     // Run nargo execute
     try {
-        const result = execSync('nargo execute', {
-            cwd: path.join(__dirname, 'invoice_reliability')
-        }).toString();
+        const nargoPath = path.join(__dirname, 'bin', 'nargo');
+const result = execSync(`${nargoPath} execute`, {
+    cwd: path.join(__dirname, 'invoice_reliability')
+}).toString();
+
 
         const match = result.match(/Field\((\d)\)/);
         const isReliable = match ? match[1] === '1' : false;
