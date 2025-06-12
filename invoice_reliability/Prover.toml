@@ -1,0 +1,3 @@
+total_invoices = 10
+paid_invoices = 9
+threshold_percent = 90
