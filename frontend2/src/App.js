@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-const API_URL = "http://localhost:3001/api/prove-reliability";
+const API_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/prove-reliability";
 
 export default function App() {
   const [inputs, setInputs] = useState({
