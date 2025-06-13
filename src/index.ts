@@ -17,11 +17,11 @@ app.use(express.json());
 // Load routers here
 app.use("/api/quickbooks", quickbooksRouter); // 👈 AND THIS
 app.use("/api", apiTestRouter);
-// Final fallback to confirm missed routes
-app.use((req, res) => {
-  console.log("Fallback handler triggered:", req.method, req.url);
-  res.status(404).send("Not found from fallback");
-});
+
+
+
+
+
 
 app.post('/api/prove-reliability', (req, res) => {
   const { total_invoices, paid_invoices, threshold_percent } = req.body;
@@ -55,6 +55,12 @@ threshold_percent = ${threshold_percent}
     }
     res.status(500).json({ error: msg, nargoOutput });
   }
+});
+
+// Final fallback to confirm missed routes
+app.use((req, res) => {
+  console.log("Fallback handler triggered:", req.method, req.url);
+  res.status(404).send("Not found from fallback");
 });
 
 
