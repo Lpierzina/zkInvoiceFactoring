@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 const API_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/prove-reliability";
 const QB_CONNECT_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/connect";
-// ^ Update to /connect if that's your backend route (it should be, not /auth)
+const QB_STATUS_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/status";
 
 export default function App() {
+  // Manual reliability proof state
   const [inputs, setInputs] = useState({
     total_invoices: "",
     paid_invoices: "",
@@ -14,7 +15,51 @@ export default function App() {
   const [proof, setProof] = useState(null);
   const [error, setError] = useState(null);
 
-  // Manual form handlers
+  // --- QuickBooks Connected status ---
+  const [qbConnected, setQBConnected] = useState(false);
+
+  // Listen for popup message and check status on mount
+  useEffect(() => {
+    checkQBConnection(); // Check when app loads
+    const handler = (event) => {
+      if (event.data === "quickbooks_connected") {
+        checkQBConnection();
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
+  async function checkQBConnection() {
+    try {
+      const res = await fetch(QB_STATUS_URL);
+      const data = await res.json();
+      setQBConnected(!!data.connected);
+    } catch {
+      setQBConnected(false);
+    }
+  }
+
+  function handleQuickBooksConnect() {
+    const w = 600, h = 700;
+    const left = window.screenX + (window.outerWidth - w) / 2;
+    const top = window.screenY + (window.outerHeight - h) / 2;
+    const popup = window.open(
+      QB_CONNECT_URL,
+      "QuickBooksConnect",
+      `width=${w},height=${h},left=${left},top=${top},resizable,scrollbars`
+    );
+
+    // As a fallback: if popup closes, refresh status
+    const timer = setInterval(() => {
+      if (popup && popup.closed) {
+        clearInterval(timer);
+        checkQBConnection();
+      }
+    }, 700);
+  }
+
+  // Form handlers
   function handleChange(e) {
     setInputs((prev) => ({
       ...prev,
@@ -48,9 +93,6 @@ export default function App() {
     }
   }
 
-  // Add QuickBooks integration for future (OAuth flow handled by backend)
-  // You could add "isQuickBooksConnected" state for advanced UX.
-
   return (
     <div style={{ fontFamily: "Inter, sans-serif", background: "#f5f8fa", minHeight: "100vh" }}>
       <div style={{
@@ -59,25 +101,27 @@ export default function App() {
       }}>
         <h2 style={{ textAlign: "center" }}>🔒 Invoice Reliability ZK Proof</h2>
 
-        {/* QuickBooks Connect */}
-        <a
-          href={QB_CONNECT_URL}
+        {/* QuickBooks Connect as Popup */}
+        <button
+          type="button"
+          onClick={handleQuickBooksConnect}
           style={{
             display: "block",
             margin: "0 auto 24px auto",
             padding: "12px 0",
             width: "100%",
-            background: "#2ca01c",
+            background: qbConnected ? "#00c853" : "#2ca01c",
             color: "#fff",
             borderRadius: 8,
             fontWeight: 600,
             textAlign: "center",
-            textDecoration: "none",
-            fontSize: 18
+            fontSize: 18,
+            border: "none",
+            cursor: "pointer"
           }}
         >
-          Connect QuickBooks
-        </a>
+          {qbConnected ? "✅ QuickBooks Connected" : "Connect QuickBooks"}
+        </button>
 
         {/* Divider */}
         <hr style={{ margin: "24px 0" }} />
