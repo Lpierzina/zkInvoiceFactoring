@@ -18,10 +18,12 @@ const client = new AuthorizationCode({
   },
   auth: {
     tokenHost: "https://oauth.platform.intuit.com",
-    authorizePath: "/oauth2/v1/authorize",    // 👈 FIXED!
+    authorizeHost: "https://appcenter.intuit.com",
+    authorizePath: "/connect/oauth2",
     tokenPath: "/oauth2/v1/tokens/bearer",
   },
 });
+
 
 // Step 1: OAuth
 export const startOAuth = (req: Request, res: Response) => {
