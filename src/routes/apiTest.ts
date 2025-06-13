@@ -3,6 +3,7 @@ import { PrismaClient } from "@prisma/client";
 
 const router = Router();
 const prisma = new PrismaClient();
+router.get("/ping", (req, res) => res.send("pong from apiTest!"));
 
 router.get("/test-db", async (req, res) => {
   try {
