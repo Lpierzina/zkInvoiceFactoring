@@ -8,8 +8,8 @@ import fs from "fs";
 
 dotenv.config();
 
-let quickBooksToken: any = null;
-let quickBooksRealmId: string | null = null;
+export let quickBooksToken: any = null;
+export let quickBooksRealmId: string | null = null;
 
 const client = new AuthorizationCode({
   client: {
