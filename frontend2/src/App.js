@@ -3,24 +3,23 @@ import React, { useState, useEffect } from "react";
 const API_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/prove-reliability";
 const QB_CONNECT_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/connect";
 const QB_STATUS_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/status";
+const QB_SUMMARY_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/invoice-summary";
 
 export default function App() {
-  // Manual reliability proof state
+  // App state
   const [inputs, setInputs] = useState({
     total_invoices: "",
     paid_invoices: "",
-    threshold_percent: ""
+    threshold_percent: 90,   // Default to 90%
   });
   const [loading, setLoading] = useState(false);
   const [proof, setProof] = useState(null);
   const [error, setError] = useState(null);
-
-  // --- QuickBooks Connected status ---
   const [qbConnected, setQBConnected] = useState(false);
 
-  // Listen for popup message and check status on mount
+  // Check QuickBooks connection when app loads and after OAuth popup
   useEffect(() => {
-    checkQBConnection(); // Check when app loads
+    checkQBConnection();
     const handler = (event) => {
       if (event.data === "quickbooks_connected") {
         checkQBConnection();
@@ -28,6 +27,7 @@ export default function App() {
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
+    // eslint-disable-next-line
   }, []);
 
   async function checkQBConnection() {
@@ -40,6 +40,38 @@ export default function App() {
     }
   }
 
+  // Fetch invoice summary automatically when connected
+  useEffect(() => {
+    if (qbConnected) {
+      fetch(QB_SUMMARY_URL)
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) throw new Error(data.error);
+          setInputs(inputs => ({
+            ...inputs,
+            total_invoices: data.total,
+            paid_invoices: data.paid,
+          }));
+        })
+        .catch(err => setError(err.message));
+    }
+  }, [qbConnected]);
+
+  // Auto-generate proof when numbers or threshold change and connected
+  useEffect(() => {
+    if (
+      qbConnected &&
+      inputs.total_invoices &&
+      inputs.paid_invoices &&
+      inputs.threshold_percent
+    ) {
+      // Do NOT require an event param
+      autoGenerateProof();
+    }
+    // eslint-disable-next-line
+  }, [inputs.total_invoices, inputs.paid_invoices, inputs.threshold_percent, qbConnected]);
+
+  // QuickBooks Connect: Popup handler
   function handleQuickBooksConnect() {
     const w = 600, h = 700;
     const left = window.screenX + (window.outerWidth - w) / 2;
@@ -49,8 +81,6 @@ export default function App() {
       "QuickBooksConnect",
       `width=${w},height=${h},left=${left},top=${top},resizable,scrollbars`
     );
-
-    // As a fallback: if popup closes, refresh status
     const timer = setInterval(() => {
       if (popup && popup.closed) {
         clearInterval(timer);
@@ -59,16 +89,25 @@ export default function App() {
     }, 700);
   }
 
-  // Form handlers
+  // Manual change: only allowed if NOT connected to QuickBooks
   function handleChange(e) {
+    if (qbConnected) return; // Lock editing if connected
     setInputs((prev) => ({
       ...prev,
       [e.target.name]: e.target.value
     }));
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  // Threshold slider: always enabled
+  function handleThresholdChange(e) {
+    setInputs(inputs => ({
+      ...inputs,
+      threshold_percent: Number(e.target.value),
+    }));
+  }
+
+  // This runs auto (no event param!)
+  async function autoGenerateProof() {
     setLoading(true);
     setProof(null);
     setError(null);
@@ -91,6 +130,12 @@ export default function App() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Manual submit (form)
+  async function handleSubmit(e) {
+    e.preventDefault();
+    autoGenerateProof();
   }
 
   return (
@@ -130,18 +175,41 @@ export default function App() {
         <form onSubmit={handleSubmit}>
           <label>
             Total Invoices<br/>
-            <input type="number" name="total_invoices" value={inputs.total_invoices}
-                   onChange={handleChange} min={1} required style={inputStyle}/>
+            <input
+              type="number"
+              name="total_invoices"
+              value={inputs.total_invoices}
+              onChange={handleChange}
+              min={1}
+              required
+              style={inputStyle}
+              disabled={qbConnected}
+            />
           </label>
           <label>
             Paid Invoices<br/>
-            <input type="number" name="paid_invoices" value={inputs.paid_invoices}
-                   onChange={handleChange} min={0} required style={inputStyle}/>
+            <input
+              type="number"
+              name="paid_invoices"
+              value={inputs.paid_invoices}
+              onChange={handleChange}
+              min={0}
+              required
+              style={inputStyle}
+              disabled={qbConnected}
+            />
           </label>
           <label>
-            Reliability Threshold (%)<br/>
-            <input type="number" name="threshold_percent" value={inputs.threshold_percent}
-                   onChange={handleChange} min={0} max={100} required style={inputStyle}/>
+            Reliability Threshold ({inputs.threshold_percent}%)
+            <input
+              type="range"
+              name="threshold_percent"
+              min={50}
+              max={100}
+              value={inputs.threshold_percent}
+              onChange={handleThresholdChange}
+              style={{ width: "100%", marginBottom: 16 }}
+            />
           </label>
           <button disabled={loading} style={btnStyle}>
             {loading ? "Proving..." : "Generate Proof"}

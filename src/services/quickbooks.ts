@@ -131,4 +131,9 @@ export const proveReliabilityWithQuickbooks = async (req: Request, res: Response
     console.error("[QuickBooks Service] nargo execute error:", msg, nargoOutput);
     res.status(500).json({ error: msg, nargoOutput });
   }
+
+
+
+
+  
 };
