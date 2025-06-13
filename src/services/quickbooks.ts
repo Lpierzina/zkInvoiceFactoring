@@ -18,7 +18,7 @@ const client = new AuthorizationCode({
   },
   auth: {
     tokenHost: "https://oauth.platform.intuit.com",
-    authorizePath: "/oauth2/v1/tokens/bearer",
+    authorizePath: "/oauth2/v1/authorize",    // 👈 FIXED!
     tokenPath: "/oauth2/v1/tokens/bearer",
   },
 });
