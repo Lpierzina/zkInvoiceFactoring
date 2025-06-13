@@ -11,9 +11,8 @@ app.use(cors());
 app.use(express.json());
 
 // Load routers here
-app.use("/api", apiTestRouter);
 app.use("/api/quickbooks", quickbooksRouter); // 👈 AND THIS
-
+app.use("/api", apiTestRouter);
 // Final fallback to confirm missed routes
 app.use((req, res) => {
   console.log("Fallback handler triggered:", req.method, req.url);
