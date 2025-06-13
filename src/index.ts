@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import apiTestRouter from "./routes/apiTest";
+import quickbooksRouter from "./routes/quickbooks"; // 👈 ADD THIS
 
 dotenv.config();
 
@@ -9,8 +10,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Load actual router here
+// Load routers here
 app.use("/api", apiTestRouter);
+app.use("/api/quickbooks", quickbooksRouter); // 👈 AND THIS
 
 // Final fallback to confirm missed routes
 app.use((req, res) => {
