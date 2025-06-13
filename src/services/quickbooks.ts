@@ -25,16 +25,19 @@ const client = new AuthorizationCode({
 
 // Step 1: OAuth
 export const startOAuth = (req: Request, res: Response) => {
+  console.log("[QuickBooks Service] startOAuth called");
   const authorizationUri = client.authorizeURL({
     redirect_uri: process.env.CALLBACK_URL!,
     scope: "com.intuit.quickbooks.accounting",
     state: Math.random().toString(36).substring(7),
   });
+  console.log("[QuickBooks Service] Redirecting to:", authorizationUri);
   res.redirect(authorizationUri);
 };
 
 // Step 2: OAuth callback
 export const quickbooksCallback = async (req: Request, res: Response) => {
+  console.log("[QuickBooks Service] quickbooksCallback called with query:", req.query);
   const { code, realmId } = req.query;
   try {
     const accessToken = await client.getToken({
@@ -45,31 +48,34 @@ export const quickbooksCallback = async (req: Request, res: Response) => {
 
     quickBooksToken = accessToken.token;
     quickBooksRealmId = realmId as string;
-    console.log("QuickBooks token saved:", quickBooksToken, "RealmId:", quickBooksRealmId);
+    console.log("[QuickBooks Service] QuickBooks token saved:", quickBooksToken, "RealmId:", quickBooksRealmId);
 
     res.send(`
       <h2>QuickBooks Connected!</h2>
       <p>You may now close this tab and return to the app.</p>
     `);
   } catch (error) {
-    console.error("OAuth Callback Error", error);
+    console.error("[QuickBooks Service] OAuth Callback Error", error);
     res.status(500).send("OAuth callback error: " + (error as any).message);
   }
 };
 
 // Step 3: ZK proof (with QuickBooks)
 export const proveReliabilityWithQuickbooks = async (req: Request, res: Response) => {
+  console.log("[QuickBooks Service] proveReliabilityWithQuickbooks called with body:", req.body);
+
   const { threshold_percent } = req.body;
   if (!quickBooksToken || !quickBooksRealmId) {
+    console.warn("[QuickBooks Service] Not connected to QuickBooks. Token or realmId missing.");
     return res.status(401).json({ error: "QuickBooks not connected." });
   }
 
-  // Fetch invoice counts privately from QuickBooks
   const url = `https://quickbooks.api.intuit.com/v3/company/${quickBooksRealmId}/query?query=SELECT%20*%20FROM%20Invoice`;
   const accessToken = quickBooksToken.access_token;
 
   let total = 0, paid = 0;
   try {
+    console.log("[QuickBooks Service] Fetching invoices from:", url);
     const qbRes = await fetch(url, {
       method: "GET",
       headers: {
@@ -83,20 +89,24 @@ export const proveReliabilityWithQuickbooks = async (req: Request, res: Response
     const invoices = qbData.QueryResponse.Invoice || [];
     total = invoices.length;
     paid = invoices.filter((inv: any) => Number(inv.Balance) === 0).length;
+    console.log(`[QuickBooks Service] Invoice counts: total=${total}, paid=${paid}`);
   } catch (err) {
-    console.error("QuickBooks fetch error:", err);
+    console.error("[QuickBooks Service] QuickBooks fetch error:", err);
     return res.status(500).json({ error: "Failed to fetch invoices from QuickBooks" });
   }
 
-  // Write TOML for Noir (no [main], just key=val)
+  // Write TOML for Noir
   const toml = `total_invoices = ${total}\npaid_invoices = ${paid}\nthreshold_percent = ${threshold_percent}\n`;
   const proverPath = path.join(__dirname, "../../invoice_reliability/Prover.toml");
+  console.log(`[QuickBooks Service] Writing TOML to ${proverPath}:\n${toml}`);
   fs.writeFileSync(proverPath, toml);
 
   try {
+    console.log("[QuickBooks Service] Executing: nargo execute");
     const result = execSync('nargo execute', {
       cwd: path.join(__dirname, "../../invoice_reliability"),
     }).toString();
+    console.log("[QuickBooks Service] nargo output:", result);
 
     const match = result.match(/Field\((\d)\)/);
     const isReliable = match ? match[1] === '1' : false;
@@ -107,16 +117,16 @@ export const proveReliabilityWithQuickbooks = async (req: Request, res: Response
       threshold_percent,
     });
   } catch (e) {
-  let msg = "Unknown error";
-  let nargoOutput = undefined;
-  if (e instanceof Error) {
-    msg = e.message;
-    // @ts-ignore
-    nargoOutput = (e as any).stdout?.toString();
-  } else if (typeof e === "string") {
-    msg = e;
+    let msg = "Unknown error";
+    let nargoOutput = undefined;
+    if (e instanceof Error) {
+      msg = e.message;
+      // @ts-ignore
+      nargoOutput = (e as any).stdout?.toString();
+    } else if (typeof e === "string") {
+      msg = e;
+    }
+    console.error("[QuickBooks Service] nargo execute error:", msg, nargoOutput);
+    res.status(500).json({ error: msg, nargoOutput });
   }
-  res.status(500).json({ error: msg, nargoOutput });
-}
-
 };
