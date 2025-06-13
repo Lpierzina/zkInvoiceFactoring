@@ -7,8 +7,9 @@ import {
 
 const router = Router();
 
-router.get("/quickbooks/connect", startOAuth);
-router.get("/quickbooks/callback", quickbooksCallback);
-router.post("/quickbooks/prove-reliability", proveReliabilityWithQuickbooks);
+// Remove the /quickbooks prefix from each route!
+router.get("/connect", startOAuth);
+router.get("/callback", quickbooksCallback);
+router.post("/prove-reliability", proveReliabilityWithQuickbooks);
 
 export default router;
