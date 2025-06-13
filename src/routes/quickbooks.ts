@@ -73,6 +73,42 @@ const paid = invoices.filter((inv: any) => Number(inv.Balance) === 0).length;
 
 });
 
+router.get("/financial-summary", async (req, res) => {
+  try {
+    if (!quickBooksToken || !quickBooksRealmId) {
+      return res.status(401).json({ error: "QuickBooks not connected." });
+    }
+
+    // Fetch ALL invoices
+    const url = `https://quickbooks.api.intuit.com/v3/company/${quickBooksRealmId}/query?query=SELECT * FROM Invoice`;
+    const accessToken = quickBooksToken.access_token;
+
+    const qbRes = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Accept": "application/json",
+        "Content-Type": "application/text",
+      }
+    });
+    if (!qbRes.ok) throw new Error("QB fetch failed");
+    const qbData = await qbRes.json();
+    const invoices = qbData.QueryResponse.Invoice || [];
+
+    // For this demo:
+    const totalDebt = invoices.filter((inv: any) => Number(inv.Balance) > 0)
+      .reduce((sum: number, inv: any) => sum + Number(inv.Balance), 0);
+
+    const totalIncome = invoices.filter((inv: any) => Number(inv.Balance) === 0)
+      .reduce((sum: number, inv: any) => sum + Number(inv.TotalAmt), 0);
+
+    res.json({ totalDebt, totalIncome });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+
 
 
 console.log("[QuickBooks Router] Exporting router.");

@@ -4,6 +4,7 @@ const API_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/prove-
 const QB_CONNECT_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/connect";
 const QB_STATUS_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/status";
 const QB_SUMMARY_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/invoice-summary";
+const QB_FINANCIAL_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/financial-summary";
 
 export default function App() {
   // App state
@@ -16,6 +17,10 @@ export default function App() {
   const [proof, setProof] = useState(null);
   const [error, setError] = useState(null);
   const [qbConnected, setQBConnected] = useState(false);
+
+  // DTI state
+  const [dti, setDti] = useState(null);
+  const [dtiPassed, setDtiPassed] = useState(null);
 
   // Check QuickBooks connection when app loads and after OAuth popup
   useEffect(() => {
@@ -57,6 +62,21 @@ export default function App() {
     }
   }, [qbConnected]);
 
+  // Fetch DTI when connected
+  useEffect(() => {
+    if (qbConnected) {
+      fetch(QB_FINANCIAL_URL)
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) throw new Error(data.error);
+          const dtiRatio = data.totalIncome > 0 ? data.totalDebt / data.totalIncome : null;
+          setDti(dtiRatio);
+          setDtiPassed(dtiRatio !== null ? dtiRatio <= 0.4 : null); // Pass if 40% or less
+        })
+        .catch(err => setError(err.message));
+    }
+  }, [qbConnected]);
+
   // Auto-generate proof when numbers or threshold change and connected
   useEffect(() => {
     if (
@@ -65,7 +85,6 @@ export default function App() {
       inputs.paid_invoices &&
       inputs.threshold_percent
     ) {
-      // Do NOT require an event param
       autoGenerateProof();
     }
     // eslint-disable-next-line
@@ -216,6 +235,7 @@ export default function App() {
           </button>
         </form>
 
+        {/* Proof result */}
         {proof && (
           <div style={{marginTop: 28, padding: 16, background: "#eef6ff", borderRadius: 12}}>
             <h3>
@@ -231,6 +251,39 @@ export default function App() {
             </details>
           </div>
         )}
+
+        {/* DTI result */}
+        {dti !== null && (
+          <div style={{marginTop: 18, padding: 12, background: "#ffe", borderRadius: 10}}>
+            <b>Debt-to-Income Ratio:</b> {(dti * 100).toFixed(1)}%
+            <div>
+              {dtiPassed === null
+                ? "—"
+                : dtiPassed
+                  ? <span style={{color: "#14b314"}}>✅ Pass</span>
+                  : <span style={{color: "#d31717"}}>❌ Fail</span>
+              }
+            </div>
+          </div>
+        )}
+
+        {/* Combined results */}
+        {proof && dti !== null && (
+          <div style={{marginTop: 22, padding: 14, background: "#f9f5e7", borderRadius: 12, textAlign: "center"}}>
+            <h3 style={{margin: 0}}>
+              {proof.isReliable && dtiPassed
+                ? <span style={{color: "#14b314"}}>✅ Passes Both Reliability & DTI</span>
+                : !proof.isReliable && !dtiPassed
+                  ? <span style={{color: "#d31717"}}>❌ Fails Both</span>
+                  : proof.isReliable
+                    ? <span style={{color: "#e67e22"}}>🟧 Passes Reliability Only</span>
+                    : <span style={{color: "#e67e22"}}>🟧 Passes DTI Only</span>
+              }
+            </h3>
+          </div>
+        )}
+
+        {/* Error */}
         {error && <div style={{ color: "#d31717", marginTop: 16 }}>{error}</div>}
         <div style={{ marginTop: 32, fontSize: 13, color: "#888" }}>
           <hr />
