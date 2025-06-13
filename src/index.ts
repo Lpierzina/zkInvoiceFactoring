@@ -1,40 +1,64 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import fs from "fs";
+import path from "path";
+import { execSync } from "child_process";
 import apiTestRouter from "./routes/apiTest";
 import quickbooksRouter from "./routes/quickbooks";
 
 dotenv.config();
 
-console.log("[App] Starting Express app...");
-
 const app = express();
 app.use(cors());
-console.log("[App] CORS middleware loaded.");
-
 app.use(express.json());
-console.log("[App] JSON middleware loaded.");
 
-// Register routers
-console.log("[App] Registering /api/quickbooks router...");
-app.use("/api/quickbooks", quickbooksRouter);
 
-console.log("[App] Registering /api router (apiTestRouter)...");
+// Load routers here
+app.use("/api/quickbooks", quickbooksRouter); // 👈 AND THIS
 app.use("/api", apiTestRouter);
-
-// Log every incoming request (optional, but super useful for debugging)
-app.use((req, res, next) => {
-  console.log(`[App] Incoming ${req.method} ${req.url}`);
-  next();
-});
-
 // Final fallback to confirm missed routes
 app.use((req, res) => {
-  console.log("[App] Fallback handler triggered:", req.method, req.url);
+  console.log("Fallback handler triggered:", req.method, req.url);
   res.status(404).send("Not found from fallback");
 });
 
+app.post('/api/prove-reliability', (req, res) => {
+  const { total_invoices, paid_invoices, threshold_percent } = req.body;
+
+  const toml = `total_invoices = ${total_invoices}
+paid_invoices = ${paid_invoices}
+threshold_percent = ${threshold_percent}
+`;
+
+  const proverPath = path.join(__dirname, 'invoice_reliability', 'Prover.toml');
+  fs.writeFileSync(proverPath, toml);
+
+  try {
+    const nargoPath = path.join(__dirname, 'bin', 'nargo');
+    const result = execSync(`${nargoPath} execute`, {
+      cwd: path.join(__dirname, 'invoice_reliability')
+    }).toString();
+
+    const match = result.match(/Field\((\d)\)/);
+    const isReliable = match ? match[1] === '1' : false;
+    res.json({ isReliable, nargoOutput: result });
+  } catch (e) {
+    let msg = "Unknown error";
+    let nargoOutput = undefined;
+    if (e instanceof Error) {
+      msg = e.message;
+      // @ts-ignore
+      nargoOutput = (e as any).stdout?.toString();
+    } else if (typeof e === "string") {
+      msg = e;
+    }
+    res.status(500).json({ error: msg, nargoOutput });
+  }
+});
+
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`[App] Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
