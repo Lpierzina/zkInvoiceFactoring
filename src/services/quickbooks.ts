@@ -42,25 +42,39 @@ export const quickbooksCallback = async (req: Request, res: Response) => {
   console.log("[QuickBooks Service] quickbooksCallback called with query:", req.query);
   const { code, realmId } = req.query;
   try {
+    // 👇👇👇 THIS LINE fetches the token!
     const accessToken = await client.getToken({
       code: code as string,
       redirect_uri: process.env.CALLBACK_URL!,
       scope: "com.intuit.quickbooks.accounting",
     });
 
+    // Now you can use accessToken
     quickBooksToken = accessToken.token;
     quickBooksRealmId = realmId as string;
     console.log("[QuickBooks Service] QuickBooks token saved:", quickBooksToken, "RealmId:", quickBooksRealmId);
 
+    // THIS HTML sends the postMessage and closes popup:
     res.send(`
-      <h2>QuickBooks Connected!</h2>
-      <p>You may now close this tab and return to the app.</p>
+      <html>
+        <body>
+          <h2>QuickBooks Connected!</h2>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage("quickbooks_connected", "*");
+              window.close();
+            }
+          </script>
+          <p>You may now close this tab and return to the app.</p>
+        </body>
+      </html>
     `);
   } catch (error) {
     console.error("[QuickBooks Service] OAuth Callback Error", error);
     res.status(500).send("OAuth callback error: " + (error as any).message);
   }
 };
+
 
 // Step 3: ZK proof (with QuickBooks)
 export const proveReliabilityWithQuickbooks = async (req: Request, res: Response) => {
@@ -135,5 +149,5 @@ export const proveReliabilityWithQuickbooks = async (req: Request, res: Response
 
 
 
-  
+
 };
