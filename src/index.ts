@@ -21,23 +21,24 @@ app.use("/api", apiTestRouter);
 
 
 
-
+// Find project root from dist/index.js
+const PROJECT_ROOT = path.resolve(__dirname, "..");
+const RELIABILITY_DIR = path.join(PROJECT_ROOT, "invoice_reliability");
+const NARGO_BIN = path.join(PROJECT_ROOT, "bin", "nargo");
 
 app.post('/api/prove-reliability', (req, res) => {
   const { total_invoices, paid_invoices, threshold_percent } = req.body;
-
   const toml = `total_invoices = ${total_invoices}
 paid_invoices = ${paid_invoices}
 threshold_percent = ${threshold_percent}
 `;
 
-  const proverPath = path.join(__dirname, 'invoice_reliability', 'Prover.toml');
+  const proverPath = path.join(RELIABILITY_DIR, "Prover.toml");
   fs.writeFileSync(proverPath, toml);
 
   try {
-    const nargoPath = path.join(__dirname, 'bin', 'nargo');
-    const result = execSync(`${nargoPath} execute`, {
-      cwd: path.join(__dirname, 'invoice_reliability')
+    const result = execSync(`${NARGO_BIN} execute`, {
+      cwd: RELIABILITY_DIR
     }).toString();
 
     const match = result.match(/Field\((\d)\)/);
@@ -56,6 +57,7 @@ threshold_percent = ${threshold_percent}
     res.status(500).json({ error: msg, nargoOutput });
   }
 });
+
 
 // Final fallback to confirm missed routes
 app.use((req, res) => {
