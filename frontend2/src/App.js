@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 
 const API_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/prove-reliability";
+const QB_CONNECT_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/connect";
+// ^ Update to /connect if that's your backend route (it should be, not /auth)
 
 export default function App() {
   const [inputs, setInputs] = useState({
@@ -12,6 +14,7 @@ export default function App() {
   const [proof, setProof] = useState(null);
   const [error, setError] = useState(null);
 
+  // Manual form handlers
   function handleChange(e) {
     setInputs((prev) => ({
       ...prev,
@@ -45,6 +48,9 @@ export default function App() {
     }
   }
 
+  // Add QuickBooks integration for future (OAuth flow handled by backend)
+  // You could add "isQuickBooksConnected" state for advanced UX.
+
   return (
     <div style={{ fontFamily: "Inter, sans-serif", background: "#f5f8fa", minHeight: "100vh" }}>
       <div style={{
@@ -52,6 +58,31 @@ export default function App() {
         borderRadius: 18, boxShadow: "0 4px 20px #0001"
       }}>
         <h2 style={{ textAlign: "center" }}>🔒 Invoice Reliability ZK Proof</h2>
+
+        {/* QuickBooks Connect */}
+        <a
+          href={QB_CONNECT_URL}
+          style={{
+            display: "block",
+            margin: "0 auto 24px auto",
+            padding: "12px 0",
+            width: "100%",
+            background: "#2ca01c",
+            color: "#fff",
+            borderRadius: 8,
+            fontWeight: 600,
+            textAlign: "center",
+            textDecoration: "none",
+            fontSize: 18
+          }}
+        >
+          Connect QuickBooks
+        </a>
+
+        {/* Divider */}
+        <hr style={{ margin: "24px 0" }} />
+
+        {/* Manual Form Entry */}
         <form onSubmit={handleSubmit}>
           <label>
             Total Invoices<br/>
