@@ -17,6 +17,8 @@ export default function App() {
   const [proof, setProof] = useState(null);
   const [error, setError] = useState(null);
   const [qbConnected, setQBConnected] = useState(false);
+  const [scorecard, setScorecard] = useState(null);
+
 
   // DTI state
   const [dti, setDti] = useState(null);
@@ -89,6 +91,22 @@ export default function App() {
     }
     // eslint-disable-next-line
   }, [inputs.total_invoices, inputs.paid_invoices, inputs.threshold_percent, qbConnected]);
+
+
+  useEffect(() => {
+  if (qbConnected) {
+    setScorecard(null); // Reset before fetching
+    fetch("https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/lender-scorecard")
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) throw new Error(data.error);
+        setScorecard(data);
+      })
+      .catch(err => setError(err.message));
+  }
+}, [qbConnected]);
+
+
 
   // QuickBooks Connect: Popup handler
   function handleQuickBooksConnect() {
@@ -282,6 +300,47 @@ export default function App() {
             </h3>
           </div>
         )}
+{scorecard && (
+  <div style={{ marginTop: 32, background: "#f5fff0", borderRadius: 14, padding: 20 }}>
+    <h3 style={{ marginTop: 0 }}>📋 Lender Scorecard</h3>
+    <ul style={{ listStyle: "none", padding: 0, fontSize: 15 }}>
+      <li>
+        <b>DSO:</b> {scorecard.dso !== null ? scorecard.dso.toFixed(1) + " days" : "—"}
+        {scorecard.pass.dso === null ? " —" : scorecard.pass.dso ? " ✅" : " ❌"}
+      </li>
+      <li>
+        <b>AR &gt; 60 Days:</b> {scorecard.arBuckets?.pctOver60 !== null ? (scorecard.arBuckets.pctOver60 * 100).toFixed(1) + "%" : "—"}
+        {scorecard.pass.arAging === null ? " —" : scorecard.pass.arAging ? " ✅" : " ❌"}
+      </li>
+      <li>
+        <b>12mo Revenue:</b> ${scorecard.revenue12mo?.toLocaleString() || "—"}
+        {scorecard.pass.revenue === null ? " —" : scorecard.pass.revenue ? " ✅" : " ❌"}
+      </li>
+      <li>
+        <b>Concentration (largest customer):</b> {scorecard.largestCustomerPct !== null ? (scorecard.largestCustomerPct * 100).toFixed(1) + "%" : "—"}
+        {scorecard.pass.concentration === null ? " —" : scorecard.pass.concentration ? " ✅" : " ❌"}
+      </li>
+      <li>
+        <b>Debt-to-Income:</b> {scorecard.dti !== null ? (scorecard.dti * 100).toFixed(1) + "%" : "—"}
+        {scorecard.pass.dti === null ? " —" : scorecard.pass.dti ? " ✅" : " ❌"}
+      </li>
+      {/* Add Current Ratio and Profitability when implemented */}
+    </ul>
+    <div style={{ marginTop: 18, fontWeight: 500 }}>
+      <span>
+        <b>
+          {Object.values(scorecard.pass).every(x => x === true)
+            ? "✅ Passes All Lender Criteria"
+            : Object.values(scorecard.pass).some(x => x === false)
+              ? "⚠️ Fails One or More Lender Checks"
+              : "—"}
+        </b>
+      </span>
+    </div>
+  </div>
+)}
+
+
 
         {/* Error */}
         {error && <div style={{ color: "#d31717", marginTop: 16 }}>{error}</div>}
