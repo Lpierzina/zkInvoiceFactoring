@@ -19,6 +19,13 @@ interface ArAgingBuckets {
   pctOver60: number | null;
 }
 
+interface ScorecardCriterion {
+  key: string;
+  label: string;
+  pass: boolean | null;
+  explanation: string;
+}
+
 router.get("/ping", (req, res) => {
   console.log("[QuickBooks Router] GET /ping");
   res.send("pong from quickbooks router!");
@@ -133,7 +140,23 @@ router.get("/lender-scorecard", async (req, res) => {
     const invoices = invoicesData.QueryResponse.Invoice || [];
     const now = new Date();
 
-    // 2. Days Sales Outstanding (DSO)
+    // --- CRITERIA COMPUTATION ---
+
+    // Invoice Reliability (90% paid or above)
+    const total = invoices.length;
+    const paid = invoices.filter((inv: any) => Number(inv.Balance) === 0).length;
+    const reliabilityPercent = total > 0 ? (paid / total) : null;
+    const isReliable = reliabilityPercent !== null ? reliabilityPercent >= 0.9 : null;
+
+    // Debt-to-Income (DTI): <= 0.4
+    const totalDebt = invoices.filter((inv: any) => Number(inv.Balance) > 0)
+      .reduce((sum: number, inv: any) => sum + Number(inv.Balance), 0);
+    const totalIncome = invoices.filter((inv: any) => Number(inv.Balance) === 0)
+      .reduce((sum: number, inv: any) => sum + Number(inv.TotalAmt), 0);
+    const dti = totalIncome > 0 ? totalDebt / totalIncome : null;
+    const dtiPass = dti !== null ? dti <= 0.4 : null;
+
+    // DSO (Days Sales Outstanding): < 45 days
     let dsoSum = 0, dsoCount = 0;
     invoices.forEach((inv: any) => {
       if (inv.Balance === 0 && inv.TxnDate && inv.LinkedTxn) {
@@ -151,22 +174,22 @@ router.get("/lender-scorecard", async (req, res) => {
       }
     });
     const dso = dsoCount > 0 ? dsoSum / dsoCount : null;
+    const dsoPass = dso !== null ? dso < 45 : null;
 
-    // 3. AR Aging Buckets
-    let arBuckets: ArAgingBuckets = { over30: 0, over60: 0, over90: 0, totalAR: 0, pctOver60: null };
+    // AR Aging: % of AR > 60 days < 10%
+    let arBuckets = { over60: 0, totalAR: 0 };
     invoices.forEach((inv: any) => {
       if (Number(inv.Balance) > 0 && inv.DueDate) {
         const dueDate = new Date(inv.DueDate);
         const daysLate = (now.getTime() - dueDate.getTime()) / (1000 * 3600 * 24);
         arBuckets.totalAR += Number(inv.Balance);
-        if (daysLate > 90) arBuckets.over90 += Number(inv.Balance);
-        else if (daysLate > 60) arBuckets.over60 += Number(inv.Balance);
-        else if (daysLate > 30) arBuckets.over30 += Number(inv.Balance);
+        if (daysLate > 60) arBuckets.over60 += Number(inv.Balance);
       }
     });
-    arBuckets.pctOver60 = arBuckets.totalAR > 0 ? arBuckets.over60 / arBuckets.totalAR : null;
+    const arAgingPercent = arBuckets.totalAR > 0 ? arBuckets.over60 / arBuckets.totalAR : null;
+    const arAgingPass = arAgingPercent !== null ? arAgingPercent < 0.10 : null;
 
-    // 4. Annual Revenue (last 12 months)
+    // Revenue: > $120,000 last 12mo
     const aYearAgo = new Date();
     aYearAgo.setFullYear(aYearAgo.getFullYear() - 1);
     let revenue12mo = 0;
@@ -174,8 +197,9 @@ router.get("/lender-scorecard", async (req, res) => {
       const date = new Date(inv.TxnDate);
       if (date > aYearAgo) revenue12mo += Number(inv.TotalAmt || 0);
     });
+    const revenuePass = revenue12mo > 120000;
 
-    // 5. Concentration Risk (by Customer)
+    // Concentration: largest customer < 50%
     const customerSums: { [id: string]: number } = {};
     invoices.forEach((inv: any) => {
       if (!inv.CustomerRef?.value) return;
@@ -185,37 +209,61 @@ router.get("/lender-scorecard", async (req, res) => {
     const totalSales = Object.values(customerSums).reduce((a, b) => a + b, 0);
     const largestCustomer = Object.entries(customerSums).sort((a, b) => b[1] - a[1])[0];
     const concentrationPct = totalSales > 0 ? (largestCustomer?.[1] || 0) / totalSales : null;
+    const concentrationPass = concentrationPct !== null ? concentrationPct < 0.5 : null;
 
-    // 6. Debt-to-Income
-    const totalDebt = invoices
-      .filter((inv: any) => Number(inv.Balance) > 0)
-      .reduce((sum: number, inv: any) => sum + Number(inv.Balance), 0);
-    const totalIncome = invoices
-      .filter((inv: any) => Number(inv.Balance) === 0)
-      .reduce((sum: number, inv: any) => sum + Number(inv.TotalAmt), 0);
-    const dti = totalIncome > 0 ? totalDebt / totalIncome : null;
+    // --- EXPLANATIONS & SCORECARD ---
 
-    let currentRatio = null;
-    let profitability = null;
-
-    res.json({
-      dso,
-      arBuckets,
-      revenue12mo,
-      largestCustomerPct: concentrationPct,
-      dti,
-      currentRatio,
-      profitability,
-      pass: {
-        dso: dso !== null ? dso < 45 : null,
-        arAging: arBuckets.pctOver60 !== null ? arBuckets.pctOver60 < 0.10 : null,
-        revenue: revenue12mo > 120000,
-        concentration: concentrationPct !== null ? concentrationPct < 0.5 : null,
-        dti: dti !== null ? dti <= 0.4 : null,
+    const criteria: ScorecardCriterion[] = [
+      {
+        key: "invoiceReliability",
+        label: "Invoice Reliability",
+        pass: isReliable,
+        explanation: "Were enough invoices paid to meet the required reliability threshold? (90%+ paid is required for most lenders.)"
+      },
+      {
+        key: "dti",
+        label: "Debt-to-Income Ratio",
+        pass: dtiPass,
+        explanation: "Does the business have a safe amount of unpaid debt compared to its income? (Below 40% is considered healthy.)"
+      },
+      {
+        key: "dso",
+        label: "Days Sales Outstanding (DSO)",
+        pass: dsoPass,
+        explanation: "Is the business paid quickly after issuing invoices? (Under 45 days is preferred.)"
+      },
+      {
+        key: "arAging",
+        label: "AR Overdue (>60 days)",
+        pass: arAgingPass,
+        explanation: "Is a low portion of accounts receivable overdue by more than 60 days? (Less than 10% is ideal.)"
+      },
+      {
+        key: "revenue",
+        label: "Annual Revenue",
+        pass: revenuePass,
+        explanation: "Does the business generate at least $120,000 in revenue per year? (Most lenders require this minimum.)"
+      },
+      {
+        key: "concentration",
+        label: "Customer Concentration",
+        pass: concentrationPass,
+        explanation: "Is the business not too reliant on a single customer? (Largest customer should be less than 50% of total sales.)"
       }
-    });
+    ];
+
+    // If any are false, fail. If all are true, pass. If any are null, overallPass = null
+    const passValues = criteria.map(c => c.pass);
+    let overallPass: boolean | null =
+      passValues.every(x => x === true)
+        ? true
+        : passValues.some(x => x === false)
+        ? false
+        : null;
+
+    return res.json({ criteria, overallPass });
   } catch (e: any) {
-    res.status(500).json({ error: e.message });
+    return res.status(500).json({ error: e.message });
   }
 });
 

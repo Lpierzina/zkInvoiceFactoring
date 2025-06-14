@@ -304,42 +304,25 @@ export default function App() {
   <div style={{ marginTop: 32, background: "#f5fff0", borderRadius: 14, padding: 20 }}>
     <h3 style={{ marginTop: 0 }}>📋 Lender Scorecard</h3>
     <ul style={{ listStyle: "none", padding: 0, fontSize: 15 }}>
-      <li>
-        <b>DSO:</b> {scorecard.dso !== null ? scorecard.dso.toFixed(1) + " days" : "—"}
-        {scorecard.pass.dso === null ? " —" : scorecard.pass.dso ? " ✅" : " ❌"}
-      </li>
-      <li>
-        <b>AR &gt; 60 Days:</b> {scorecard.arBuckets?.pctOver60 !== null ? (scorecard.arBuckets.pctOver60 * 100).toFixed(1) + "%" : "—"}
-        {scorecard.pass.arAging === null ? " —" : scorecard.pass.arAging ? " ✅" : " ❌"}
-      </li>
-      <li>
-        <b>12mo Revenue:</b> ${scorecard.revenue12mo?.toLocaleString() || "—"}
-        {scorecard.pass.revenue === null ? " —" : scorecard.pass.revenue ? " ✅" : " ❌"}
-      </li>
-      <li>
-        <b>Concentration (largest customer):</b> {scorecard.largestCustomerPct !== null ? (scorecard.largestCustomerPct * 100).toFixed(1) + "%" : "—"}
-        {scorecard.pass.concentration === null ? " —" : scorecard.pass.concentration ? " ✅" : " ❌"}
-      </li>
-      <li>
-        <b>Debt-to-Income:</b> {scorecard.dti !== null ? (scorecard.dti * 100).toFixed(1) + "%" : "—"}
-        {scorecard.pass.dti === null ? " —" : scorecard.pass.dti ? " ✅" : " ❌"}
-      </li>
-      {/* Add Current Ratio and Profitability when implemented */}
+      {scorecard.criteria.map((c, i) => (
+        <li key={c.key} style={{ marginBottom: 18, display: "flex", alignItems: "center" }}>
+          <span style={{ fontWeight: 600, marginRight: 10 }}>{c.label}:</span>
+          {c.pass === null ? <span style={{fontWeight:600,marginRight:6}}>—</span>
+            : c.pass
+              ? <span style={{ color: "#14b314", fontWeight: 600, fontSize: 18, marginRight: 6 }}>✅</span>
+              : <span style={{ color: "#d31717", fontWeight: 600, fontSize: 18, marginRight: 6 }}>❌</span>
+          }
+          <span style={{ color: "#444", fontSize: 14 }}>{c.explanation}</span>
+        </li>
+      ))}
     </ul>
-    <div style={{ marginTop: 18, fontWeight: 500 }}>
-      <span>
-        <b>
-          {Object.values(scorecard.pass).every(x => x === true)
-            ? "✅ Passes All Lender Criteria"
-            : Object.values(scorecard.pass).some(x => x === false)
-              ? "⚠️ Fails One or More Lender Checks"
-              : "—"}
-        </b>
-      </span>
+    <div style={{ marginTop: 18, fontWeight: 600, fontSize: 16, textAlign: "center" }}>
+      {scorecard.overallPass === true && "✅ Passes All Lender Criteria"}
+      {scorecard.overallPass === false && "⚠️ Fails One or More Lender Checks"}
+      {scorecard.overallPass === null && "— Not Enough Data to Score"}
     </div>
   </div>
 )}
-
 
 
         {/* Error */}
