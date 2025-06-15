@@ -1,53 +1,78 @@
 import React, { useState } from "react";
 const API_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/prove-reliability";
 
+const defaultInputs = {
+  total_invoices: 100,
+  paid_invoices: 90,
+  threshold_percent: 90,
+  total_debt: 40000,
+  total_income: 100000,
+  dti_threshold_bp: 4000,
+  dso: 44,
+  dso_threshold: 45,
+  ar_over60: 9000,
+  ar_total: 100000,
+  ar_pct_threshold_bp: 1000,
+  revenue12mo: 121000,
+  revenue_threshold: 120000,
+  largest_cust_sales: 49999,
+  total_sales: 100000,
+  concentration_threshold_bp: 5000
+};
+
+const testKeys = [
+  { key: "reliable", label: "Invoice Reliability" },
+  { key: "dti", label: "Debt-to-Income Ratio" },
+  { key: "dso", label: "Days Sales Outstanding" },
+  { key: "ar_aging", label: "AR Aging > 60 Days" },
+  { key: "revenue", label: "12mo Revenue" },
+  { key: "concentration", label: "Customer Concentration" },
+];
+
 export default function App() {
-  // Change this to real QB connection logic as needed
   const [qbConnected, setQBConnected] = useState(false);
-
-  // All form state
-  const [inputs, setInputs] = useState({
-    total_invoices: 100,
-    paid_invoices: 90,
-    threshold_percent: 90,
-    total_debt: 40000,
-    total_income: 100000,
-    dti_threshold_bp: 4000,
-    dso: 44,
-    dso_threshold: 45,
-    ar_over60: 9000,
-    ar_total: 100000,
-    ar_pct_threshold_bp: 1000,
-    revenue12mo: 121000,
-    revenue_threshold: 120000,
-    largest_cust_sales: 49999,
-    total_sales: 100000,
-    concentration_threshold_bp: 5000
-  });
-
-  const [loading, setLoading] = useState(false);
+  const [inputs, setInputs] = useState({ ...defaultInputs });
+  const [testResults, setTestResults] = useState([1,1,1,1,1,1]); // default to "just pass"
   const [proof, setProof] = useState(null);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  // Handle slider/input changes
-  function handleChange(e) {
-    setInputs((prev) => ({
+  // Map backend proof results if available
+  React.useEffect(() => {
+    if (proof && proof.proof) {
+      setTestResults(proof.proof.map(v => v ? 1 : 0));
+    }
+  }, [proof]);
+
+  function handleInputChange(e) {
+    setInputs(prev => ({
       ...prev,
       [e.target.name]: Number(e.target.value)
     }));
   }
 
+  function handleTestSlider(idx, v) {
+    let newArr = [...testResults];
+    newArr[idx] = Number(v);
+    setTestResults(newArr);
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
-    setProof(null);
     setError(null);
-
+    setProof(null);
     try {
+      // In manual mode, send the "forced" test results as proof
+      let body = { ...inputs };
+      if (!qbConnected) {
+        // Send to backend as "manual" proof
+        body.manual_proof = testResults.map(x => !!x);
+      }
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(inputs)
+        body: JSON.stringify(body)
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -59,78 +84,109 @@ export default function App() {
     }
   }
 
-  // Example QuickBooks connect simulation
   function handleQBConnect() {
-    // TODO: Replace with real QB connect flow
+    // Replace with real logic
     setQBConnected(true);
+    setInputs({ ...defaultInputs }); // TODO: fetch from QB backend
+    setProof(null);
+    setTestResults([1,1,1,1,1,1]);
   }
-
-  // Example: simulate disconnect
   function handleQBDisconnect() {
     setQBConnected(false);
+    setProof(null);
+    setTestResults([1,1,1,1,1,1]);
+  }
+
+  function fillExample() {
+    setInputs({ ...defaultInputs });
+    setTestResults([1,1,1,1,1,1]);
+    setProof(null);
   }
 
   return (
     <div style={{ fontFamily: "Inter, sans-serif", background: "#f5f8fa", minHeight: "100vh" }}>
       <div style={{
-        maxWidth: 620, margin: "40px auto", background: "#fff", padding: 32,
+        maxWidth: 600, margin: "40px auto", background: "#fff", padding: 32,
         borderRadius: 18, boxShadow: "0 4px 20px #0001"
       }}>
         <h2 style={{ textAlign: "center" }}>🔒 FastPass Lending Score</h2>
         <div style={{textAlign: "center", color:"#888", fontSize: 16, marginBottom: 18}}>
           Automated, Tamper-Proof ZK Reports
         </div>
-        {!qbConnected ? (
-          <button onClick={handleQBConnect} style={connectBtnStyle}>
-            Connect to QuickBooks
-          </button>
-        ) : (
-          <button onClick={handleQBDisconnect} style={disconnectBtnStyle}>
-            Disconnect QuickBooks
-          </button>
-        )}
 
-        <form onSubmit={handleSubmit} style={{marginTop: 24}}>
-          <Section title="1. Invoice Reliability">
-            <SliderOrInput {...sliderConfig.total_invoices} qbConnected={qbConnected} value={inputs.total_invoices} onChange={handleChange}/>
-            <SliderOrInput {...sliderConfig.paid_invoices} qbConnected={qbConnected} value={inputs.paid_invoices} onChange={handleChange}/>
-            <SliderOrInput {...sliderConfig.threshold_percent} qbConnected={qbConnected} value={inputs.threshold_percent} onChange={handleChange}/>
-          </Section>
-          <Section title="2. Debt-to-Income Ratio">
-            <SliderOrInput {...sliderConfig.total_debt} qbConnected={qbConnected} value={inputs.total_debt} onChange={handleChange}/>
-            <SliderOrInput {...sliderConfig.total_income} qbConnected={qbConnected} value={inputs.total_income} onChange={handleChange}/>
-            <SliderOrInput {...sliderConfig.dti_threshold_bp} qbConnected={qbConnected} value={inputs.dti_threshold_bp} onChange={handleChange}/>
-          </Section>
-          <Section title="3. Days Sales Outstanding (DSO)">
-            <SliderOrInput {...sliderConfig.dso} qbConnected={qbConnected} value={inputs.dso} onChange={handleChange}/>
-            <SliderOrInput {...sliderConfig.dso_threshold} qbConnected={qbConnected} value={inputs.dso_threshold} onChange={handleChange}/>
-          </Section>
-          <Section title="4. AR Aging Over 60 Days">
-            <SliderOrInput {...sliderConfig.ar_over60} qbConnected={qbConnected} value={inputs.ar_over60} onChange={handleChange}/>
-            <SliderOrInput {...sliderConfig.ar_total} qbConnected={qbConnected} value={inputs.ar_total} onChange={handleChange}/>
-            <SliderOrInput {...sliderConfig.ar_pct_threshold_bp} qbConnected={qbConnected} value={inputs.ar_pct_threshold_bp} onChange={handleChange}/>
-          </Section>
-          <Section title="5. Revenue (12 months)">
-            <SliderOrInput {...sliderConfig.revenue12mo} qbConnected={qbConnected} value={inputs.revenue12mo} onChange={handleChange}/>
-            <SliderOrInput {...sliderConfig.revenue_threshold} qbConnected={qbConnected} value={inputs.revenue_threshold} onChange={handleChange}/>
-          </Section>
-          <Section title="6. Customer Concentration">
-            <SliderOrInput {...sliderConfig.largest_cust_sales} qbConnected={qbConnected} value={inputs.largest_cust_sales} onChange={handleChange}/>
-            <SliderOrInput {...sliderConfig.total_sales} qbConnected={qbConnected} value={inputs.total_sales} onChange={handleChange}/>
-            <SliderOrInput {...sliderConfig.concentration_threshold_bp} qbConnected={qbConnected} value={inputs.concentration_threshold_bp} onChange={handleChange}/>
-          </Section>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:20}}>
+          {!qbConnected ? (
+            <button onClick={handleQBConnect} style={connectBtnStyle}>
+              Connect to QuickBooks
+            </button>
+          ) : (
+            <button onClick={handleQBDisconnect} style={disconnectBtnStyle}>
+              Disconnect QuickBooks
+            </button>
+          )}
+          <button onClick={fillExample} style={fillBtnStyle}>
+            Fill Example Data
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          {testKeys.map((test, idx) => (
+            <fieldset key={test.key} style={fieldsetStyle}>
+              <legend style={legendStyle}>{test.label}</legend>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                {/* Show variable inputs always */}
+                {getFieldsForTest(test.key).map(f =>
+                  <label key={f.name}>
+                    {f.label}<br/>
+                    <input
+                      style={inputStyle}
+                      name={f.name}
+                      value={inputs[f.name]}
+                      type="number"
+                      min={f.min}
+                      max={f.max}
+                      onChange={handleInputChange}
+                      disabled={qbConnected} // QB disables inputs, show as readonly
+                    />
+                  </label>
+                )}
+                <label>
+                  <div style={{marginBottom:4,fontWeight:600}}>Pass/Fail</div>
+                  {qbConnected
+                    ? <input type="checkbox" checked={!!(proof && proof.proof ? proof.proof[idx] : testResults[idx])} readOnly />
+                    : (
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={1}
+                        value={testResults[idx]}
+                        onChange={e => handleTestSlider(idx, e.target.value)}
+                        style={{width:"100%"}}
+                      />
+                    )
+                  }
+                  <div style={{fontSize:12,color:"#888"}}>
+                    {!qbConnected
+                      ? (testResults[idx] ? "✅ Pass" : "❌ Fail")
+                      : (proof && proof.criteria ? (proof.criteria[idx].pass ? "✅ Pass" : "❌ Fail") : "")
+                    }
+                  </div>
+                </label>
+              </div>
+            </fieldset>
+          ))}
 
           <button disabled={loading} style={btnStyle}>
             {loading ? "Proving..." : "Generate ZK Scorecard"}
           </button>
         </form>
 
-        {/* Scorecard */}
         {proof && (
           <div style={{ marginTop: 32, background: "#f5fff0", borderRadius: 14, padding: 20 }}>
             <h3 style={{ marginTop: 0 }}>📋 ZK Lender Scorecard</h3>
             <ul style={{ listStyle: "none", padding: 0, fontSize: 15 }}>
-              {proof.criteria.map((c) => (
+              {proof.criteria.map((c, i) => (
                 <li key={c.key} style={{ marginBottom: 18, display: "flex", alignItems: "center" }}>
                   <span style={{ fontWeight: 600, marginRight: 10 }}>{c.label}:</span>
                   {c.pass
@@ -166,92 +222,72 @@ export default function App() {
   );
 }
 
-// --- Helpers ---
-
-function Section({ title, children }) {
-  return (
-    <fieldset style={{ marginBottom: 18, padding: 14, borderRadius: 10, border: "1px solid #e7eaf0" }}>
-      <legend style={{fontWeight:700, fontSize:15, color:"#476cd7"}}>{title}</legend>
-      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:14}}>
-        {children}
-      </div>
-    </fieldset>
-  );
-}
-
-function SliderOrInput({ label, min, max, step, unit, qbConnected, value, onChange, name }) {
-  // Find field name by reverse-mapping label to sliderConfig key
-  if (!name) {
-    name = Object.entries(sliderConfig).find(([k, v]) => v.label === label)?.[0];
+// Helper to get the right variable fields for each test
+function getFieldsForTest(key) {
+  switch (key) {
+    case "reliable":
+      return [
+        { name: "total_invoices", label: "Total Invoices", min: 0 },
+        { name: "paid_invoices", label: "Paid Invoices", min: 0 },
+        { name: "threshold_percent", label: "Reliability Threshold (%)", min: 50, max: 100 },
+      ];
+    case "dti":
+      return [
+        { name: "total_debt", label: "Total Debt", min: 0 },
+        { name: "total_income", label: "Total Income", min: 0 },
+        { name: "dti_threshold_bp", label: "DTI Threshold (bp)", min: 0, max: 10000 }
+      ];
+    case "dso":
+      return [
+        { name: "dso", label: "DSO", min: 0 },
+        { name: "dso_threshold", label: "DSO Threshold", min: 0 }
+      ];
+    case "ar_aging":
+      return [
+        { name: "ar_over60", label: "AR Over 60", min: 0 },
+        { name: "ar_total", label: "AR Total", min: 0 },
+        { name: "ar_pct_threshold_bp", label: "AR % Threshold (bp)", min: 0, max: 10000 }
+      ];
+    case "revenue":
+      return [
+        { name: "revenue12mo", label: "12mo Revenue", min: 0 },
+        { name: "revenue_threshold", label: "Revenue Threshold", min: 0 }
+      ];
+    case "concentration":
+      return [
+        { name: "largest_cust_sales", label: "Largest Customer Sales", min: 0 },
+        { name: "total_sales", label: "Total Sales", min: 0 },
+        { name: "concentration_threshold_bp", label: "Concentration % Threshold (bp)", min: 0, max: 10000 }
+      ];
+    default:
+      return [];
   }
-  return (
-    <label>
-      {label}<br/>
-      {qbConnected
-        ? <input
-            style={inputStyle}
-            name={name}
-            type="number"
-            value={value}
-            readOnly
-          />
-        : <input
-            style={inputStyle}
-            name={name}
-            type="range"
-            min={min}
-            max={max}
-            value={value}
-            onChange={onChange}
-            step={step || 1}
-          />
-      }
-      {!qbConnected &&
-        <div style={{fontSize:12, color:"#999"}}>{value} {unit}</div>
-      }
-    </label>
-  );
 }
 
-// --- Field Config ---
+// ---- Styles ----
 
-const sliderConfig = {
-  total_invoices:           { label: "Total Invoices", min: 10, max: 200, step: 1, unit: "", name:"total_invoices" },
-  paid_invoices:            { label: "Paid Invoices", min: 0, max: 200, step: 1, unit: "", name:"paid_invoices" },
-  threshold_percent:        { label: "Reliability Threshold (%)", min: 50, max: 100, step: 1, unit: "%", name:"threshold_percent" },
-  total_debt:               { label: "Total Debt", min: 0, max: 100000, step: 1000, unit: "$", name:"total_debt" },
-  total_income:             { label: "Total Income", min: 0, max: 200000, step: 1000, unit: "$", name:"total_income" },
-  dti_threshold_bp:         { label: "DTI Threshold (basis points)", min: 1000, max: 10000, step: 100, unit: "bp", name:"dti_threshold_bp" },
-  dso:                      { label: "DSO", min: 10, max: 90, step: 1, unit: "days", name:"dso" },
-  dso_threshold:            { label: "DSO Threshold", min: 10, max: 90, step: 1, unit: "days", name:"dso_threshold" },
-  ar_over60:                { label: "AR Over 60", min: 0, max: 50000, step: 500, unit: "$", name:"ar_over60" },
-  ar_total:                 { label: "AR Total", min: 0, max: 100000, step: 1000, unit: "$", name:"ar_total" },
-  ar_pct_threshold_bp:      { label: "AR % Threshold (basis points)", min: 500, max: 5000, step: 100, unit: "bp", name:"ar_pct_threshold_bp" },
-  revenue12mo:              { label: "12mo Revenue", min: 0, max: 300000, step: 1000, unit: "$", name:"revenue12mo" },
-  revenue_threshold:        { label: "Revenue Threshold", min: 10000, max: 200000, step: 1000, unit: "$", name:"revenue_threshold" },
-  largest_cust_sales:       { label: "Largest Customer Sales", min: 0, max: 150000, step: 1000, unit: "$", name:"largest_cust_sales" },
-  total_sales:              { label: "Total Sales", min: 0, max: 300000, step: 1000, unit: "$", name:"total_sales" },
-  concentration_threshold_bp: { label: "Concentration % Threshold (bp)", min: 1000, max: 10000, step: 100, unit: "bp", name:"concentration_threshold_bp" }
+const fieldsetStyle = {
+  marginBottom: 16, padding: 14, borderRadius: 10, border: "1px solid #e7eaf0"
 };
-
+const legendStyle = { fontWeight: 700, fontSize: 15, color: "#476cd7" };
 const inputStyle = {
   width: "100%", margin: "4px 0 8px 0", padding: 8,
   border: "1px solid #bbb", borderRadius: 6, fontSize: 15
 };
-
 const btnStyle = {
-  marginTop: 24,
-  width: "100%", padding: "14px 0", fontSize: 18,
+  marginTop: 24, width: "100%", padding: "14px 0", fontSize: 18,
   background: "linear-gradient(90deg,#00c6ff,#0072ff)", color: "#fff",
   border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700
 };
-
 const connectBtnStyle = {
-  width: "100%", padding: "10px 0", marginBottom: "14px", fontSize: 17,
+  width: "47%", padding: "10px 0", fontSize: 17,
   background: "#476cd7", color: "#fff", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer"
 };
-
 const disconnectBtnStyle = {
   ...connectBtnStyle,
   background: "#e74c3c"
+};
+const fillBtnStyle = {
+  width: "47%", padding: "10px 0", fontSize: 17,
+  background: "#eee", color: "#222", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer"
 };
