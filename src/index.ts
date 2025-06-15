@@ -70,41 +70,42 @@ concentration_threshold_bp = ${fill(concentration_threshold_bp, isManual ? 10000
   fs.writeFileSync(proverPath, toml);
 
   try {
-    const result = execSync(`${NARGO_BIN} execute`, {
-      cwd: RELIABILITY_DIR
-    }).toString();
+  const result = execSync(`${NARGO_BIN} execute`, {
+    cwd: RELIABILITY_DIR
+  }).toString();
 
-    const match = result.match(/\[([01, ]+)\]/);
-    const bools = match ? match[1].split(",").map(x => x.trim() === "1") : [false, false, false, false, false, false];
+  // --- PATCHED: Parse Field(1) correctly ---
+  const fieldMatches = [...result.matchAll(/Field\((\d)\)/g)];
+  const bools = fieldMatches.map(m => m[1] === "1");
+  while (bools.length < 6) bools.push(false); // always fill to 6
 
-    let criteria;
-    let overallPass;
-    if (isManual) {
-      // Only show the first two checks in manual mode
-      criteria = [
-        { key: "reliable", label: "Invoice Reliability", pass: bools[0], explanation: bools[0] ? "Paid invoices meet threshold." : "Paid invoices below threshold." },
-        { key: "dti", label: "Debt-to-Income", pass: bools[1], explanation: bools[1] ? "DTI ratio is within safe bounds." : "DTI ratio is too high." }
-      ];
-      overallPass = bools[0] && bools[1];
-    } else {
-      criteria = [
-        { key: "reliable", label: "Invoice Reliability", pass: bools[0], explanation: bools[0] ? "Paid invoices meet threshold." : "Paid invoices below threshold." },
-        { key: "dti", label: "Debt-to-Income", pass: bools[1], explanation: bools[1] ? "DTI ratio is within safe bounds." : "DTI ratio is too high." },
-        { key: "dso", label: "DSO", pass: bools[2], explanation: bools[2] ? "DSO is within range." : "DSO is too high." },
-        { key: "ar_aging", label: "AR > 60 Days", pass: bools[3], explanation: bools[3] ? "AR aging is acceptable." : "AR aging is too high." },
-        { key: "revenue", label: "12mo Revenue", pass: bools[4], explanation: bools[4] ? "Revenue meets threshold." : "Revenue below threshold." },
-        { key: "concentration", label: "Customer Concentration", pass: bools[5], explanation: bools[5] ? "Customer concentration is safe." : "Customer concentration too high." }
-      ];
-      overallPass = bools.every(Boolean);
-    }
+  let criteria;
+  let overallPass;
+  if (isManual) {
+    criteria = [
+      { key: "reliable", label: "Invoice Reliability", pass: bools[0], explanation: bools[0] ? "Paid invoices meet threshold." : "Paid invoices below threshold." },
+      { key: "dti", label: "Debt-to-Income", pass: bools[1], explanation: bools[1] ? "DTI ratio is within safe bounds." : "DTI ratio is too high." }
+    ];
+    overallPass = bools[0] && bools[1];
+  } else {
+    criteria = [
+      { key: "reliable", label: "Invoice Reliability", pass: bools[0], explanation: bools[0] ? "Paid invoices meet threshold." : "Paid invoices below threshold." },
+      { key: "dti", label: "Debt-to-Income", pass: bools[1], explanation: bools[1] ? "DTI ratio is within safe bounds." : "DTI ratio is too high." },
+      { key: "dso", label: "DSO", pass: bools[2], explanation: bools[2] ? "DSO is within range." : "DSO is too high." },
+      { key: "ar_aging", label: "AR > 60 Days", pass: bools[3], explanation: bools[3] ? "AR aging is acceptable." : "AR aging is too high." },
+      { key: "revenue", label: "12mo Revenue", pass: bools[4], explanation: bools[4] ? "Revenue meets threshold." : "Revenue below threshold." },
+      { key: "concentration", label: "Customer Concentration", pass: bools[5], explanation: bools[5] ? "Customer concentration is safe." : "Customer concentration too high." }
+    ];
+    overallPass = bools.every(Boolean);
+  }
 
-    res.json({
-      proof: bools,
-      nargoOutput: result,
-      criteria,
-      overallPass
-    });
-  } catch (e) {
+  res.json({
+    proof: bools,
+    nargoOutput: result,
+    criteria,
+    overallPass
+  });
+} catch (e) {
     let msg = "Unknown error";
     let nargoOutput = undefined;
     if (e instanceof Error) {
