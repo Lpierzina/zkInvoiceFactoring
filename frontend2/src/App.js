@@ -1,150 +1,43 @@
 import React, { useState, useEffect } from "react";
 
 const API_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/prove-reliability";
-const QB_CONNECT_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/connect";
-const QB_STATUS_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/status";
-const QB_SUMMARY_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/invoice-summary";
-const QB_FINANCIAL_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/financial-summary";
 
 export default function App() {
-  // App state
+  // Expanded state for ALL 6 ZK checks
   const [inputs, setInputs] = useState({
     total_invoices: "",
     paid_invoices: "",
-    threshold_percent: 90,   // Default to 90%
+    threshold_percent: 90,
+    total_debt: "",
+    total_income: "",
+    dti_threshold_bp: 4000,             // 40.00%
+    dso: "",
+    dso_threshold: 45,
+    ar_over60: "",
+    ar_total: "",
+    ar_pct_threshold_bp: 1000,          // 10.00%
+    revenue12mo: "",
+    revenue_threshold: 120000,          // $120,000 (12mo)
+    largest_cust_sales: "",
+    total_sales: "",
+    concentration_threshold_bp: 5000    // 50.00%
   });
+
   const [loading, setLoading] = useState(false);
   const [proof, setProof] = useState(null);
   const [error, setError] = useState(null);
-  const [qbConnected, setQBConnected] = useState(false);
-  const [scorecard, setScorecard] = useState(null);
 
-
-  // DTI state
-  const [dti, setDti] = useState(null);
-  const [dtiPassed, setDtiPassed] = useState(null);
-
-  // Check QuickBooks connection when app loads and after OAuth popup
-  useEffect(() => {
-    checkQBConnection();
-    const handler = (event) => {
-      if (event.data === "quickbooks_connected") {
-        checkQBConnection();
-      }
-    };
-    window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
-    // eslint-disable-next-line
-  }, []);
-
-  async function checkQBConnection() {
-    try {
-      const res = await fetch(QB_STATUS_URL);
-      const data = await res.json();
-      setQBConnected(!!data.connected);
-    } catch {
-      setQBConnected(false);
-    }
-  }
-
-  // Fetch invoice summary automatically when connected
-  useEffect(() => {
-    if (qbConnected) {
-      fetch(QB_SUMMARY_URL)
-        .then(res => res.json())
-        .then(data => {
-          if (data.error) throw new Error(data.error);
-          setInputs(inputs => ({
-            ...inputs,
-            total_invoices: data.total,
-            paid_invoices: data.paid,
-          }));
-        })
-        .catch(err => setError(err.message));
-    }
-  }, [qbConnected]);
-
-  // Fetch DTI when connected
-  useEffect(() => {
-    if (qbConnected) {
-      fetch(QB_FINANCIAL_URL)
-        .then(res => res.json())
-        .then(data => {
-          if (data.error) throw new Error(data.error);
-          const dtiRatio = data.totalIncome > 0 ? data.totalDebt / data.totalIncome : null;
-          setDti(dtiRatio);
-          setDtiPassed(dtiRatio !== null ? dtiRatio <= 0.4 : null); // Pass if 40% or less
-        })
-        .catch(err => setError(err.message));
-    }
-  }, [qbConnected]);
-
-  // Auto-generate proof when numbers or threshold change and connected
-  useEffect(() => {
-    if (
-      qbConnected &&
-      inputs.total_invoices &&
-      inputs.paid_invoices &&
-      inputs.threshold_percent
-    ) {
-      autoGenerateProof();
-    }
-    // eslint-disable-next-line
-  }, [inputs.total_invoices, inputs.paid_invoices, inputs.threshold_percent, qbConnected]);
-
-
-  useEffect(() => {
-  if (qbConnected) {
-    setScorecard(null); // Reset before fetching
-    fetch("https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/lender-scorecard")
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) throw new Error(data.error);
-        setScorecard(data);
-      })
-      .catch(err => setError(err.message));
-  }
-}, [qbConnected]);
-
-
-
-  // QuickBooks Connect: Popup handler
-  function handleQuickBooksConnect() {
-    const w = 600, h = 700;
-    const left = window.screenX + (window.outerWidth - w) / 2;
-    const top = window.screenY + (window.outerHeight - h) / 2;
-    const popup = window.open(
-      QB_CONNECT_URL,
-      "QuickBooksConnect",
-      `width=${w},height=${h},left=${left},top=${top},resizable,scrollbars`
-    );
-    const timer = setInterval(() => {
-      if (popup && popup.closed) {
-        clearInterval(timer);
-        checkQBConnection();
-      }
-    }, 700);
-  }
-
-  // Manual change: only allowed if NOT connected to QuickBooks
+  // === Update input fields ===
   function handleChange(e) {
-    if (qbConnected) return; // Lock editing if connected
     setInputs((prev) => ({
       ...prev,
       [e.target.name]: e.target.value
     }));
   }
 
-  // Threshold slider: always enabled
-  function handleThresholdChange(e) {
-    setInputs(inputs => ({
-      ...inputs,
-      threshold_percent: Number(e.target.value),
-    }));
-  }
-
-  // This runs auto (no event param!)
-  async function autoGenerateProof() {
+  // === ZK Prove button handler ===
+  async function handleSubmit(e) {
+    e.preventDefault();
     setLoading(true);
     setProof(null);
     setError(null);
@@ -154,9 +47,23 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...inputs,
           total_invoices: Number(inputs.total_invoices),
           paid_invoices: Number(inputs.paid_invoices),
-          threshold_percent: Number(inputs.threshold_percent)
+          threshold_percent: Number(inputs.threshold_percent),
+          total_debt: Number(inputs.total_debt),
+          total_income: Number(inputs.total_income),
+          dti_threshold_bp: Number(inputs.dti_threshold_bp),
+          dso: Number(inputs.dso),
+          dso_threshold: Number(inputs.dso_threshold),
+          ar_over60: Number(inputs.ar_over60),
+          ar_total: Number(inputs.ar_total),
+          ar_pct_threshold_bp: Number(inputs.ar_pct_threshold_bp),
+          revenue12mo: Number(inputs.revenue12mo),
+          revenue_threshold: Number(inputs.revenue_threshold),
+          largest_cust_sales: Number(inputs.largest_cust_sales),
+          total_sales: Number(inputs.total_sales),
+          concentration_threshold_bp: Number(inputs.concentration_threshold_bp)
         })
       });
       const data = await res.json();
@@ -169,99 +76,94 @@ export default function App() {
     }
   }
 
-  // Manual submit (form)
-  async function handleSubmit(e) {
-    e.preventDefault();
-    autoGenerateProof();
-  }
-
+  // === The UI ===
   return (
     <div style={{ fontFamily: "Inter, sans-serif", background: "#f5f8fa", minHeight: "100vh" }}>
       <div style={{
-        maxWidth: 460, margin: "40px auto", background: "#fff", padding: 32,
+        maxWidth: 560, margin: "40px auto", background: "#fff", padding: 32,
         borderRadius: 18, boxShadow: "0 4px 20px #0001"
       }}>
-        <h2 style={{ textAlign: "center" }}>🔒 Invoice Reliability ZK Proof</h2>
-
-        {/* QuickBooks Connect as Popup */}
-        <button
-          type="button"
-          onClick={handleQuickBooksConnect}
-          style={{
-            display: "block",
-            margin: "0 auto 24px auto",
-            padding: "12px 0",
-            width: "100%",
-            background: qbConnected ? "#00c853" : "#2ca01c",
-            color: "#fff",
-            borderRadius: 8,
-            fontWeight: 600,
-            textAlign: "center",
-            fontSize: 18,
-            border: "none",
-            cursor: "pointer"
-          }}
-        >
-          {qbConnected ? "✅ QuickBooks Connected" : "Connect QuickBooks"}
-        </button>
-
-        {/* Divider */}
-        <hr style={{ margin: "24px 0" }} />
-
-        {/* Manual Form Entry */}
+        <h2 style={{ textAlign: "center" }}>🔒 FastPass Lending Score <br /><span style={{fontSize:18, color:"#999"}}>Automated, Tamper-Proof ZK Reports</span></h2>
+        
         <form onSubmit={handleSubmit}>
-          <label>
-            Total Invoices<br/>
-            <input
-              type="number"
-              name="total_invoices"
-              value={inputs.total_invoices}
-              onChange={handleChange}
-              min={1}
-              required
-              style={inputStyle}
-              disabled={qbConnected}
-            />
-          </label>
-          <label>
-            Paid Invoices<br/>
-            <input
-              type="number"
-              name="paid_invoices"
-              value={inputs.paid_invoices}
-              onChange={handleChange}
-              min={0}
-              required
-              style={inputStyle}
-              disabled={qbConnected}
-            />
-          </label>
-          <label>
-            Reliability Threshold ({inputs.threshold_percent}%)
-            <input
-              type="range"
-              name="threshold_percent"
-              min={50}
-              max={100}
-              value={inputs.threshold_percent}
-              onChange={handleThresholdChange}
-              style={{ width: "100%", marginBottom: 16 }}
-            />
-          </label>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
+            {/* These can be made smarter with labels, QuickBooks integration, etc. */}
+            <label>Total Invoices<br/>
+              <input name="total_invoices" value={inputs.total_invoices} onChange={handleChange} type="number" min={1} required style={inputStyle} />
+            </label>
+            <label>Paid Invoices<br/>
+              <input name="paid_invoices" value={inputs.paid_invoices} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>Reliability Threshold (%)<br/>
+              <input name="threshold_percent" value={inputs.threshold_percent} onChange={handleChange} type="number" min={50} max={100} required style={inputStyle} />
+            </label>
+            <label>Total Debt<br/>
+              <input name="total_debt" value={inputs.total_debt} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>Total Income<br/>
+              <input name="total_income" value={inputs.total_income} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>DTI Threshold (bp)<br/>
+              <input name="dti_threshold_bp" value={inputs.dti_threshold_bp} onChange={handleChange} type="number" min={0} max={10000} required style={inputStyle} />
+            </label>
+            <label>DSO<br/>
+              <input name="dso" value={inputs.dso} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>DSO Threshold<br/>
+              <input name="dso_threshold" value={inputs.dso_threshold} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>AR Over 60<br/>
+              <input name="ar_over60" value={inputs.ar_over60} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>AR Total<br/>
+              <input name="ar_total" value={inputs.ar_total} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>AR % Threshold (bp)<br/>
+              <input name="ar_pct_threshold_bp" value={inputs.ar_pct_threshold_bp} onChange={handleChange} type="number" min={0} max={10000} required style={inputStyle} />
+            </label>
+            <label>12mo Revenue<br/>
+              <input name="revenue12mo" value={inputs.revenue12mo} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>Revenue Threshold<br/>
+              <input name="revenue_threshold" value={inputs.revenue_threshold} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>Largest Cust. Sales<br/>
+              <input name="largest_cust_sales" value={inputs.largest_cust_sales} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>Total Sales<br/>
+              <input name="total_sales" value={inputs.total_sales} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>Concentration % Threshold (bp)<br/>
+              <input name="concentration_threshold_bp" value={inputs.concentration_threshold_bp} onChange={handleChange} type="number" min={0} max={10000} required style={inputStyle} />
+            </label>
+          </div>
           <button disabled={loading} style={btnStyle}>
-            {loading ? "Proving..." : "Generate Proof"}
+            {loading ? "Proving..." : "Generate ZK Scorecard"}
           </button>
         </form>
 
-        {/* Proof result */}
+        {/* Proof Scorecard Result */}
         {proof && (
-          <div style={{marginTop: 28, padding: 16, background: "#eef6ff", borderRadius: 12}}>
-            <h3>
-              {proof.isReliable
-                ? <span style={{color: "#14b314"}}>✅ Reliable</span>
-                : <span style={{color: "#d31717"}}>❌ Not Reliable</span>}
-            </h3>
-            <details style={{marginTop: 8}}>
+          <div style={{ marginTop: 32, background: "#f5fff0", borderRadius: 14, padding: 20 }}>
+            <h3 style={{ marginTop: 0 }}>📋 ZK Lender Scorecard</h3>
+            <ul style={{ listStyle: "none", padding: 0, fontSize: 15 }}>
+              {proof.criteria.map((c) => (
+                <li key={c.key} style={{ marginBottom: 18, display: "flex", alignItems: "center" }}>
+                  <span style={{ fontWeight: 600, marginRight: 10 }}>{c.label}:</span>
+                  {c.pass
+                    ? <span style={{ color: "#14b314", fontWeight: 600, fontSize: 18, marginRight: 6 }}>✅</span>
+                    : <span style={{ color: "#d31717", fontWeight: 600, fontSize: 18, marginRight: 6 }}>❌</span>
+                  }
+                  <span style={{ color: "#444", fontSize: 14 }}>{c.explanation}</span>
+                </li>
+              ))}
+            </ul>
+            <div style={{ marginTop: 18, fontWeight: 600, fontSize: 16, textAlign: "center" }}>
+              {proof.overallPass === true && "✅ Passes All Lender Criteria"}
+              {proof.overallPass === false && "⚠️ Fails One or More Lender Checks"}
+              {proof.overallPass == null && "— Not Enough Data to Score"}
+            </div>
+            <details style={{marginTop: 12}}>
               <summary>Show ZK Proof Output</summary>
               <pre style={{
                 background: "#eee", padding: 8, borderRadius: 6, fontSize: 13, overflowX: "auto"
@@ -270,66 +172,10 @@ export default function App() {
           </div>
         )}
 
-        {/* DTI result */}
-        {dti !== null && (
-          <div style={{marginTop: 18, padding: 12, background: "#ffe", borderRadius: 10}}>
-            <b>Debt-to-Income Ratio:</b> {(dti * 100).toFixed(1)}%
-            <div>
-              {dtiPassed === null
-                ? "—"
-                : dtiPassed
-                  ? <span style={{color: "#14b314"}}>✅ Pass</span>
-                  : <span style={{color: "#d31717"}}>❌ Fail</span>
-              }
-            </div>
-          </div>
-        )}
-
-        {/* Combined results */}
-        {proof && dti !== null && (
-          <div style={{marginTop: 22, padding: 14, background: "#f9f5e7", borderRadius: 12, textAlign: "center"}}>
-            <h3 style={{margin: 0}}>
-              {proof.isReliable && dtiPassed
-                ? <span style={{color: "#14b314"}}>✅ Passes Both Reliability & DTI</span>
-                : !proof.isReliable && !dtiPassed
-                  ? <span style={{color: "#d31717"}}>❌ Fails Both</span>
-                  : proof.isReliable
-                    ? <span style={{color: "#e67e22"}}>🟧 Passes Reliability Only</span>
-                    : <span style={{color: "#e67e22"}}>🟧 Passes DTI Only</span>
-              }
-            </h3>
-          </div>
-        )}
-{scorecard && (
-  <div style={{ marginTop: 32, background: "#f5fff0", borderRadius: 14, padding: 20 }}>
-    <h3 style={{ marginTop: 0 }}>📋 Lender Scorecard</h3>
-    <ul style={{ listStyle: "none", padding: 0, fontSize: 15 }}>
-      {scorecard.criteria.map((c, i) => (
-        <li key={c.key} style={{ marginBottom: 18, display: "flex", alignItems: "center" }}>
-          <span style={{ fontWeight: 600, marginRight: 10 }}>{c.label}:</span>
-          {c.pass === null ? <span style={{fontWeight:600,marginRight:6}}>—</span>
-            : c.pass
-              ? <span style={{ color: "#14b314", fontWeight: 600, fontSize: 18, marginRight: 6 }}>✅</span>
-              : <span style={{ color: "#d31717", fontWeight: 600, fontSize: 18, marginRight: 6 }}>❌</span>
-          }
-          <span style={{ color: "#444", fontSize: 14 }}>{c.explanation}</span>
-        </li>
-      ))}
-    </ul>
-    <div style={{ marginTop: 18, fontWeight: 600, fontSize: 16, textAlign: "center" }}>
-      {scorecard.overallPass === true && "✅ Passes All Lender Criteria"}
-      {scorecard.overallPass === false && "⚠️ Fails One or More Lender Checks"}
-      {scorecard.overallPass === null && "— Not Enough Data to Score"}
-    </div>
-  </div>
-)}
-
-
-        {/* Error */}
-        {error && <div style={{ color: "#d31717", marginTop: 16 }}>{error}</div>}
+        {error && <div style={{ color: "#d31717", marginTop: 18 }}>{error}</div>}
         <div style={{ marginTop: 32, fontSize: 13, color: "#888" }}>
           <hr />
-          <div style={{textAlign: "center"}}>
+          <div style={{ textAlign: "center" }}>
             Powered by Noir ZK circuits &bull; MyLockChain.io
           </div>
         </div>
@@ -338,13 +184,15 @@ export default function App() {
   );
 }
 
+// === Styles ===
 const inputStyle = {
   width: "100%", margin: "4px 0 16px 0", padding: 8,
   border: "1px solid #bbb", borderRadius: 6, fontSize: 15
 };
 
 const btnStyle = {
-  width: "100%", padding: "10px 0", fontSize: 16,
+  marginTop: 24,
+  width: "100%", padding: "14px 0", fontSize: 18,
   background: "linear-gradient(90deg,#00c6ff,#0072ff)", color: "#fff",
-  border: "none", borderRadius: 8, cursor: "pointer"
+  border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700
 };
