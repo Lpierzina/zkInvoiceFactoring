@@ -1,41 +1,42 @@
-import React, { useState, useEffect } from "react";
-
+import React, { useState } from "react";
 const API_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/prove-reliability";
 
 export default function App() {
-  // Expanded state for ALL 6 ZK checks
+  // True = simulate QB connection
+  const [qbConnected, setQBConnected] = useState(false);
+
+  // Default values set to "just passing"
   const [inputs, setInputs] = useState({
-    total_invoices: "",
-    paid_invoices: "",
+    total_invoices: 100,
+    paid_invoices: 90,
     threshold_percent: 90,
-    total_debt: "",
-    total_income: "",
-    dti_threshold_bp: 4000,             // 40.00%
-    dso: "",
+    total_debt: 40000,
+    total_income: 100000,
+    dti_threshold_bp: 4000,          // 40.00%
+    dso: 44,
     dso_threshold: 45,
-    ar_over60: "",
-    ar_total: "",
-    ar_pct_threshold_bp: 1000,          // 10.00%
-    revenue12mo: "",
-    revenue_threshold: 120000,          // $120,000 (12mo)
-    largest_cust_sales: "",
-    total_sales: "",
-    concentration_threshold_bp: 5000    // 50.00%
+    ar_over60: 9000,
+    ar_total: 100000,
+    ar_pct_threshold_bp: 1000,       // 10.00%
+    revenue12mo: 121000,
+    revenue_threshold: 120000,
+    largest_cust_sales: 49999,
+    total_sales: 100000,
+    concentration_threshold_bp: 5000 // 50.00%
   });
 
   const [loading, setLoading] = useState(false);
   const [proof, setProof] = useState(null);
   const [error, setError] = useState(null);
 
-  // === Update input fields ===
+  // Handle slider/input changes
   function handleChange(e) {
     setInputs((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [e.target.name]: Number(e.target.value)
     }));
   }
 
-  // === ZK Prove button handler ===
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
@@ -46,25 +47,7 @@ export default function App() {
       const res = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...inputs,
-          total_invoices: Number(inputs.total_invoices),
-          paid_invoices: Number(inputs.paid_invoices),
-          threshold_percent: Number(inputs.threshold_percent),
-          total_debt: Number(inputs.total_debt),
-          total_income: Number(inputs.total_income),
-          dti_threshold_bp: Number(inputs.dti_threshold_bp),
-          dso: Number(inputs.dso),
-          dso_threshold: Number(inputs.dso_threshold),
-          ar_over60: Number(inputs.ar_over60),
-          ar_total: Number(inputs.ar_total),
-          ar_pct_threshold_bp: Number(inputs.ar_pct_threshold_bp),
-          revenue12mo: Number(inputs.revenue12mo),
-          revenue_threshold: Number(inputs.revenue_threshold),
-          largest_cust_sales: Number(inputs.largest_cust_sales),
-          total_sales: Number(inputs.total_sales),
-          concentration_threshold_bp: Number(inputs.concentration_threshold_bp)
-        })
+        body: JSON.stringify(inputs)
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -76,7 +59,9 @@ export default function App() {
     }
   }
 
-  // === The UI ===
+  // For demo: toggle connection (remove in prod)
+  function toggleQB() { setQBConnected(x => !x); }
+
   return (
     <div style={{ fontFamily: "Inter, sans-serif", background: "#f5f8fa", minHeight: "100vh" }}>
       <div style={{
@@ -84,65 +69,49 @@ export default function App() {
         borderRadius: 18, boxShadow: "0 4px 20px #0001"
       }}>
         <h2 style={{ textAlign: "center" }}>🔒 FastPass Lending Score <br /><span style={{fontSize:18, color:"#999"}}>Automated, Tamper-Proof ZK Reports</span></h2>
-        
+
+        {/* Demo: toggle QB connection */}
+        <button style={{float:"right",marginBottom:8}} onClick={toggleQB}>
+          {qbConnected ? "Simulate Manual Mode" : "Simulate QuickBooks Connected"}
+        </button>
+
         <form onSubmit={handleSubmit}>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-            {/* These can be made smarter with labels, QuickBooks integration, etc. */}
-            <label>Total Invoices<br/>
-              <input name="total_invoices" value={inputs.total_invoices} onChange={handleChange} type="number" min={1} required style={inputStyle} />
-            </label>
-            <label>Paid Invoices<br/>
-              <input name="paid_invoices" value={inputs.paid_invoices} onChange={handleChange} type="number" min={0} required style={inputStyle} />
-            </label>
-            <label>Reliability Threshold (%)<br/>
-              <input name="threshold_percent" value={inputs.threshold_percent} onChange={handleChange} type="number" min={50} max={100} required style={inputStyle} />
-            </label>
-            <label>Total Debt<br/>
-              <input name="total_debt" value={inputs.total_debt} onChange={handleChange} type="number" min={0} required style={inputStyle} />
-            </label>
-            <label>Total Income<br/>
-              <input name="total_income" value={inputs.total_income} onChange={handleChange} type="number" min={0} required style={inputStyle} />
-            </label>
-            <label>DTI Threshold (bp)<br/>
-              <input name="dti_threshold_bp" value={inputs.dti_threshold_bp} onChange={handleChange} type="number" min={0} max={10000} required style={inputStyle} />
-            </label>
-            <label>DSO<br/>
-              <input name="dso" value={inputs.dso} onChange={handleChange} type="number" min={0} required style={inputStyle} />
-            </label>
-            <label>DSO Threshold<br/>
-              <input name="dso_threshold" value={inputs.dso_threshold} onChange={handleChange} type="number" min={0} required style={inputStyle} />
-            </label>
-            <label>AR Over 60<br/>
-              <input name="ar_over60" value={inputs.ar_over60} onChange={handleChange} type="number" min={0} required style={inputStyle} />
-            </label>
-            <label>AR Total<br/>
-              <input name="ar_total" value={inputs.ar_total} onChange={handleChange} type="number" min={0} required style={inputStyle} />
-            </label>
-            <label>AR % Threshold (bp)<br/>
-              <input name="ar_pct_threshold_bp" value={inputs.ar_pct_threshold_bp} onChange={handleChange} type="number" min={0} max={10000} required style={inputStyle} />
-            </label>
-            <label>12mo Revenue<br/>
-              <input name="revenue12mo" value={inputs.revenue12mo} onChange={handleChange} type="number" min={0} required style={inputStyle} />
-            </label>
-            <label>Revenue Threshold<br/>
-              <input name="revenue_threshold" value={inputs.revenue_threshold} onChange={handleChange} type="number" min={0} required style={inputStyle} />
-            </label>
-            <label>Largest Cust. Sales<br/>
-              <input name="largest_cust_sales" value={inputs.largest_cust_sales} onChange={handleChange} type="number" min={0} required style={inputStyle} />
-            </label>
-            <label>Total Sales<br/>
-              <input name="total_sales" value={inputs.total_sales} onChange={handleChange} type="number" min={0} required style={inputStyle} />
-            </label>
-            <label>Concentration % Threshold (bp)<br/>
-              <input name="concentration_threshold_bp" value={inputs.concentration_threshold_bp} onChange={handleChange} type="number" min={0} max={10000} required style={inputStyle} />
-            </label>
+            {Object.entries(sliderConfig).map(([key, config]) => (
+              <label key={key}>{config.label}<br/>
+                {qbConnected
+                  ? <input
+                      style={inputStyle}
+                      name={key}
+                      type="number"
+                      value={inputs[key]}
+                      readOnly
+                    />
+                  : <input
+                      style={inputStyle}
+                      name={key}
+                      type="range"
+                      min={config.min}
+                      max={config.max}
+                      value={inputs[key]}
+                      onChange={handleChange}
+                      step={config.step || 1}
+                    />
+                }
+                {!qbConnected &&
+                  <div style={{fontSize:12, color:"#999"}}>
+                    {inputs[key]} {config.unit}
+                  </div>
+                }
+              </label>
+            ))}
           </div>
           <button disabled={loading} style={btnStyle}>
             {loading ? "Proving..." : "Generate ZK Scorecard"}
           </button>
         </form>
 
-        {/* Proof Scorecard Result */}
+        {/* Scorecard */}
         {proof && (
           <div style={{ marginTop: 32, background: "#f5fff0", borderRadius: 14, padding: 20 }}>
             <h3 style={{ marginTop: 0 }}>📋 ZK Lender Scorecard</h3>
@@ -171,7 +140,6 @@ export default function App() {
             </details>
           </div>
         )}
-
         {error && <div style={{ color: "#d31717", marginTop: 18 }}>{error}</div>}
         <div style={{ marginTop: 32, fontSize: 13, color: "#888" }}>
           <hr />
@@ -184,12 +152,30 @@ export default function App() {
   );
 }
 
-// === Styles ===
-const inputStyle = {
-  width: "100%", margin: "4px 0 16px 0", padding: 8,
-  border: "1px solid #bbb", borderRadius: 6, fontSize: 15
+// Slider configs: label, min, max, step, unit (for display)
+const sliderConfig = {
+  total_invoices:           { label: "Total Invoices", min: 10, max: 200, step: 1, unit: "" },
+  paid_invoices:            { label: "Paid Invoices", min: 0, max: 200, step: 1, unit: "" },
+  threshold_percent:        { label: "Reliability Threshold (%)", min: 50, max: 100, step: 1, unit: "%" },
+  total_debt:               { label: "Total Debt", min: 0, max: 100000, step: 1000, unit: "$" },
+  total_income:             { label: "Total Income", min: 0, max: 200000, step: 1000, unit: "$" },
+  dti_threshold_bp:         { label: "DTI Threshold (basis points)", min: 1000, max: 10000, step: 100, unit: "bp" },
+  dso:                      { label: "DSO", min: 10, max: 90, step: 1, unit: "days" },
+  dso_threshold:            { label: "DSO Threshold", min: 10, max: 90, step: 1, unit: "days" },
+  ar_over60:                { label: "AR Over 60", min: 0, max: 50000, step: 500, unit: "$" },
+  ar_total:                 { label: "AR Total", min: 0, max: 100000, step: 1000, unit: "$" },
+  ar_pct_threshold_bp:      { label: "AR % Threshold (basis points)", min: 500, max: 5000, step: 100, unit: "bp" },
+  revenue12mo:              { label: "12mo Revenue", min: 0, max: 300000, step: 1000, unit: "$" },
+  revenue_threshold:        { label: "Revenue Threshold", min: 10000, max: 200000, step: 1000, unit: "$" },
+  largest_cust_sales:       { label: "Largest Customer Sales", min: 0, max: 150000, step: 1000, unit: "$" },
+  total_sales:              { label: "Total Sales", min: 0, max: 300000, step: 1000, unit: "$" },
+  concentration_threshold_bp: { label: "Concentration % Threshold (bp)", min: 1000, max: 10000, step: 100, unit: "bp" }
 };
 
+const inputStyle = {
+  width: "100%", margin: "4px 0 8px 0", padding: 8,
+  border: "1px solid #bbb", borderRadius: 6, fontSize: 15
+};
 const btnStyle = {
   marginTop: 24,
   width: "100%", padding: "14px 0", fontSize: 18,
