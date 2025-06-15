@@ -13,21 +13,20 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-
 // Load routers here
-app.use("/api/quickbooks", quickbooksRouter); // 👈 AND THIS
+app.use("/api/quickbooks", quickbooksRouter);
 app.use("/api", apiTestRouter);
 
-
-
-
-// Find project root from dist/index.js
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const RELIABILITY_DIR = path.join(PROJECT_ROOT, "invoice_reliability");
 const NARGO_BIN = path.join(PROJECT_ROOT, "bin", "nargo");
 
+// Helper to fill default values
+function fill(x: any, def: any) {
+  return (typeof x !== "undefined" && x !== "" && x !== null) ? x : def;
+}
+
 app.post('/api/prove-reliability', (req, res) => {
-  // Always set every variable, but check which fields are present.
   const {
     total_invoices, paid_invoices, threshold_percent,
     total_debt, total_income, dti_threshold_bp,
@@ -37,25 +36,35 @@ app.post('/api/prove-reliability', (req, res) => {
     largest_cust_sales, total_sales, concentration_threshold_bp
   } = req.body;
 
-  // Build the toml as before, defaulting missing to 0.
+  // Detect manual mode: if certain fields are missing, assume manual form
+  const isManual =
+    !req.body.dso &&
+    !req.body.ar_total &&
+    !req.body.largest_cust_sales &&
+    !req.body.revenue12mo &&
+    !req.body.total_sales;
+
+  // Fill defaults for "pass" for unused fields if manual mode.
+  // These values should guarantee each check passes unless the user is actually filling them in.
+  // For passing: thresholds are set so check always passes, and numerators/denominators are non-failing.
   const toml = `
-total_invoices = ${Number(total_invoices) || 0}
-paid_invoices = ${Number(paid_invoices) || 0}
-threshold_percent = ${Number(threshold_percent) || 0}
-total_debt = ${Number(total_debt) || 0}
-total_income = ${Number(total_income) || 0}
-dti_threshold_bp = ${Number(dti_threshold_bp) || 0}
-dso = ${Number(dso) || 0}
-dso_threshold = ${Number(dso_threshold) || 0}
-ar_over60 = ${Number(ar_over60) || 0}
-ar_total = ${Number(ar_total) || 0}
-ar_pct_threshold_bp = ${Number(ar_pct_threshold_bp) || 0}
-revenue12mo = ${Number(revenue12mo) || 0}
-revenue_threshold = ${Number(revenue_threshold) || 0}
-largest_cust_sales = ${Number(largest_cust_sales) || 0}
-total_sales = ${Number(total_sales) || 0}
-concentration_threshold_bp = ${Number(concentration_threshold_bp) || 0}
-  `;
+total_invoices = ${fill(total_invoices, 1)}
+paid_invoices = ${fill(paid_invoices, 1)}
+threshold_percent = ${fill(threshold_percent, 0)}
+total_debt = ${fill(total_debt, 0)}
+total_income = ${fill(total_income, 1)}
+dti_threshold_bp = ${fill(dti_threshold_bp, 10000)}        # 100.00% DTI passes
+dso = ${fill(dso, 0)}
+dso_threshold = ${fill(dso_threshold, isManual ? 0 : 45)}  # 0 disables DSO check
+ar_over60 = ${fill(ar_over60, 0)}
+ar_total = ${fill(ar_total, 1)}
+ar_pct_threshold_bp = ${fill(ar_pct_threshold_bp, isManual ? 0 : 1000)}
+revenue12mo = ${fill(revenue12mo, isManual ? 999999999 : 0)}
+revenue_threshold = ${fill(revenue_threshold, isManual ? 0 : 120000)}
+largest_cust_sales = ${fill(largest_cust_sales, 0)}
+total_sales = ${fill(total_sales, 1)}
+concentration_threshold_bp = ${fill(concentration_threshold_bp, isManual ? 10000 : 5000)}
+`;
 
   const proverPath = path.join(RELIABILITY_DIR, "Prover.toml");
   fs.writeFileSync(proverPath, toml);
@@ -68,23 +77,16 @@ concentration_threshold_bp = ${Number(concentration_threshold_bp) || 0}
     const match = result.match(/\[([01, ]+)\]/);
     const bools = match ? match[1].split(",").map(x => x.trim() === "1") : [false, false, false, false, false, false];
 
-    // Build minimal or full criteria list depending on what's present
     let criteria;
     let overallPass;
-    if (
-      // Only minimal fields sent (manual mode)
-      typeof total_invoices !== "undefined" &&
-      typeof paid_invoices !== "undefined" &&
-      typeof threshold_percent !== "undefined" &&
-      !req.body.dso && !req.body.ar_total && !req.body.largest_cust_sales // crude but works
-    ) {
+    if (isManual) {
+      // Only show the first two checks in manual mode
       criteria = [
         { key: "reliable", label: "Invoice Reliability", pass: bools[0], explanation: bools[0] ? "Paid invoices meet threshold." : "Paid invoices below threshold." },
         { key: "dti", label: "Debt-to-Income", pass: bools[1], explanation: bools[1] ? "DTI ratio is within safe bounds." : "DTI ratio is too high." }
       ];
       overallPass = bools[0] && bools[1];
     } else {
-      // QuickBooks/Full Scorecard Mode
       criteria = [
         { key: "reliable", label: "Invoice Reliability", pass: bools[0], explanation: bools[0] ? "Paid invoices meet threshold." : "Paid invoices below threshold." },
         { key: "dti", label: "Debt-to-Income", pass: bools[1], explanation: bools[1] ? "DTI ratio is within safe bounds." : "DTI ratio is too high." },
@@ -115,14 +117,11 @@ concentration_threshold_bp = ${Number(concentration_threshold_bp) || 0}
   }
 });
 
-
-
-// Final fallback to confirm missed routes
+// Fallback
 app.use((req, res) => {
   console.log("Fallback handler triggered:", req.method, req.url);
   res.status(404).send("Not found from fallback");
 });
-
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
