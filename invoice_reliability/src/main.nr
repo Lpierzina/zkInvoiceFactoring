@@ -33,27 +33,44 @@ fn main(
         false
     };
 
-    // 3. DSO
-    let dso_pass: bool = dso < dso_threshold;
+    // 3. DSO (patched to always pass if dso_threshold == 0)
+    let dso_pass: bool = if (dso_threshold == 0) {
+        true
+    } else {
+        dso < dso_threshold
+    };
 
-    // 4. AR > 60 Days
+    // 4. AR > 60 Days (patched to always pass if ar_pct_threshold_bp == 0)
     let pct_over60: u64 = if (ar_total > 0) {
         (ar_over60 * 10_000) / ar_total
     } else {
         0
     };
-    let ar_aging_pass: bool = pct_over60 < ar_pct_threshold_bp;
+    let ar_aging_pass: bool = if (ar_pct_threshold_bp == 0) {
+        true
+    } else {
+        pct_over60 < ar_pct_threshold_bp
+    };
 
-    // 5. Revenue (12mo)
-    let revenue_pass: bool = revenue12mo > revenue_threshold;
+    // 5. Revenue (patched to always pass if revenue_threshold == 0)
+    let revenue_pass: bool = if (revenue_threshold == 0) {
+        true
+    } else {
+        revenue12mo > revenue_threshold
+    };
 
-    // 6. Concentration
+    // 6. Concentration (patched to always pass if concentration_threshold_bp == 0)
     let concentration_pct: u64 = if (total_sales > 0) {
         (largest_cust_sales * 10_000) / total_sales
     } else {
         0
     };
-    let concentration_pass: bool = concentration_pct < concentration_threshold_bp;
+    let concentration_pass: bool = if (concentration_threshold_bp == 0) {
+        true
+    } else {
+        concentration_pct < concentration_threshold_bp
+    };
+    
 
     [reliable, dti_pass, dso_pass, ar_aging_pass, revenue_pass, concentration_pass]
 }
