@@ -43,6 +43,13 @@ export default function App() {
   const [dti, setDti] = useState(null);
   const [dtiPassed, setDtiPassed] = useState(null);
 
+  useEffect(() => {
+    console.log('proof', proof);
+    if (proof && proof.criteria && proof.criteria[0]) {
+      console.log('criteria[0]', proof.criteria[0]);
+    }
+  }, [proof]);
+
   // Check QuickBooks connection when app loads and after OAuth popup
   useEffect(() => {
     checkQBConnection();
@@ -335,12 +342,9 @@ export default function App() {
  {proof && (
   <div style={{marginTop: 28, padding: 16, background: "#eef6ff", borderRadius: 12}}>
     <h3>
-      {(() => {
-        // accept bool, 1/0, "1"/"0", "Field(1)"
-        let v = proof.proof && proof.proof[0];
-        if (v === true || v === 1 || v === "1" || v === "Field(1)" || v === 1n) return <span style={{color: "#14b314"}}>✅ Reliable</span>;
-        return <span style={{color: "#d31717"}}>❌ Not Reliable</span>;
-      })()}
+      {proof.criteria && proof.criteria[0] && proof.criteria[0].pass
+        ? <span style={{color: "#14b314"}}>✅ Reliable</span>
+        : <span style={{color: "#d31717"}}>❌ Not Reliable</span>}
     </h3>
     <details style={{marginTop: 8}}>
       <summary>Show ZK Proof Output</summary>
@@ -350,6 +354,7 @@ export default function App() {
     </details>
   </div>
 )}
+
 
 
 
