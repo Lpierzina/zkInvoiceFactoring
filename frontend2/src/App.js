@@ -175,38 +175,47 @@ export default function App() {
   setError(null);
 
   try {
+    // If QuickBooks is connected, send all fields for scorecard
+    const payload = qbConnected
+      ? {
+          total_invoices: Number(inputs.total_invoices),
+          paid_invoices: Number(inputs.paid_invoices),
+          threshold_percent: Number(inputs.threshold_percent),
+          total_debt: Number(inputs.total_debt),
+          total_income: Number(inputs.total_income),
+          dti_threshold_bp: Number(inputs.dti_threshold_bp),
+          dso: Number(inputs.dso),
+          dso_threshold: Number(inputs.dso_threshold),
+          ar_over60: Number(inputs.ar_over60),
+          ar_total: Number(inputs.ar_total),
+          ar_pct_threshold_bp: Number(inputs.ar_pct_threshold_bp),
+          revenue12mo: Number(inputs.revenue12mo),
+          revenue_threshold: Number(inputs.revenue_threshold),
+          largest_cust_sales: Number(inputs.largest_cust_sales),
+          total_sales: Number(inputs.total_sales),
+          concentration_threshold_bp: Number(inputs.concentration_threshold_bp)
+        }
+      : {
+          total_invoices: Number(inputs.total_invoices),
+          paid_invoices: Number(inputs.paid_invoices),
+          threshold_percent: Number(inputs.threshold_percent)
+        };
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        total_invoices: Number(inputs.total_invoices),
-        paid_invoices: Number(inputs.paid_invoices),
-        threshold_percent: Number(inputs.threshold_percent),
-        total_debt: Number(inputs.total_debt),
-        total_income: Number(inputs.total_income),
-        dti_threshold_bp: Number(inputs.dti_threshold_bp),
-        dso: Number(inputs.dso),
-        dso_threshold: Number(inputs.dso_threshold),
-        ar_over60: Number(inputs.ar_over60),
-        ar_total: Number(inputs.ar_total),
-        ar_pct_threshold_bp: Number(inputs.ar_pct_threshold_bp),
-        revenue12mo: Number(inputs.revenue12mo),
-        revenue_threshold: Number(inputs.revenue_threshold),
-        largest_cust_sales: Number(inputs.largest_cust_sales),
-        total_sales: Number(inputs.total_sales),
-        concentration_threshold_bp: Number(inputs.concentration_threshold_bp),
-      })
+      body: JSON.stringify(payload)
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     setProof(data);
-    setScorecard(data.scorecard); // use unified scorecard from backend
+    if (qbConnected) setScorecard(data.scorecard);
   } catch (err) {
     setError(err.message);
   } finally {
     setLoading(false);
   }
 }
+
 
 
   // Manual submit (form)
@@ -250,48 +259,75 @@ export default function App() {
 
         {/* Manual Form Entry */}
         <form onSubmit={handleSubmit}>
-          <label>
-            Total Invoices<br/>
-            <input
-              type="number"
-              name="total_invoices"
-              value={inputs.total_invoices}
-              onChange={handleChange}
-              min={1}
-              required
-              style={inputStyle}
-              disabled={qbConnected}
-            />
-          </label>
-          <label>
-            Paid Invoices<br/>
-            <input
-              type="number"
-              name="paid_invoices"
-              value={inputs.paid_invoices}
-              onChange={handleChange}
-              min={0}
-              required
-              style={inputStyle}
-              disabled={qbConnected}
-            />
-          </label>
-          <label>
-            Reliability Threshold ({inputs.threshold_percent}%)
-            <input
-              type="range"
-              name="threshold_percent"
-              min={50}
-              max={100}
-              value={inputs.threshold_percent}
-              onChange={handleThresholdChange}
-              style={{ width: "100%", marginBottom: 16 }}
-            />
-          </label>
-          <button disabled={loading} style={btnStyle}>
-            {loading ? "Proving..." : "Generate Proof"}
-          </button>
-        </form>
+  <label>
+    Total Invoices<br/>
+    <input
+      type="number"
+      name="total_invoices"
+      value={inputs.total_invoices}
+      onChange={handleChange}
+      min={1}
+      required
+      style={inputStyle}
+      disabled={qbConnected}
+    />
+  </label>
+  <label>
+    Paid Invoices<br/>
+    <input
+      type="number"
+      name="paid_invoices"
+      value={inputs.paid_invoices}
+      onChange={handleChange}
+      min={0}
+      required
+      style={inputStyle}
+      disabled={qbConnected}
+    />
+  </label>
+  <label>
+    Reliability Threshold ({inputs.threshold_percent}%)
+    <input
+      type="range"
+      name="threshold_percent"
+      min={50}
+      max={100}
+      value={inputs.threshold_percent}
+      onChange={handleThresholdChange}
+      style={{ width: "100%", marginBottom: 16 }}
+    />
+  </label>
+  {/* Only show DTI manual entry if NOT connected */}
+  {!qbConnected && (
+    <>
+      <label>
+        Total Debt<br/>
+        <input
+          type="number"
+          name="total_debt"
+          value={inputs.total_debt}
+          onChange={handleChange}
+          min={0}
+          style={inputStyle}
+        />
+      </label>
+      <label>
+        Total Income<br/>
+        <input
+          type="number"
+          name="total_income"
+          value={inputs.total_income}
+          onChange={handleChange}
+          min={0}
+          style={inputStyle}
+        />
+      </label>
+    </>
+  )}
+  <button disabled={loading} style={btnStyle}>
+    {loading ? "Proving..." : "Generate Proof"}
+  </button>
+</form>
 
         {/* Proof result */}
         {proof && (
