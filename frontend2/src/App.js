@@ -1,35 +1,33 @@
-import React, { useState} from "react";
+import React, { useState, useEffect } from "react";
 
 const API_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/prove-reliability";
 
-
-
 export default function App() {
+  // Expanded state for ALL 6 ZK checks
   const [inputs, setInputs] = useState({
     total_invoices: "",
     paid_invoices: "",
     threshold_percent: 90,
     total_debt: "",
     total_income: "",
-    dti_threshold_bp: 4000,
+    dti_threshold_bp: 4000,             // 40.00%
     dso: "",
     dso_threshold: 45,
     ar_over60: "",
     ar_total: "",
-    ar_pct_threshold_bp: 1000,
+    ar_pct_threshold_bp: 1000,          // 10.00%
     revenue12mo: "",
-    revenue_threshold: 120000,
+    revenue_threshold: 120000,          // $120,000 (12mo)
     largest_cust_sales: "",
     total_sales: "",
-    concentration_threshold_bp: 5000
+    concentration_threshold_bp: 5000    // 50.00%
   });
 
   const [loading, setLoading] = useState(false);
   const [proof, setProof] = useState(null);
   const [error, setError] = useState(null);
-  const [manualMode, setManualMode] = useState(true);
 
-  // Update input fields
+  // === Update input fields ===
   function handleChange(e) {
     setInputs((prev) => ({
       ...prev,
@@ -37,109 +35,13 @@ export default function App() {
     }));
   }
 
-  // Manual logic for lender score
-  function calculateManualScorecard(values) {
-    const total_invoices = Number(values.total_invoices);
-    const paid_invoices = Number(values.paid_invoices);
-    const threshold_percent = Number(values.threshold_percent);
-    const total_debt = Number(values.total_debt);
-    const total_income = Number(values.total_income);
-    const dti_threshold_bp = Number(values.dti_threshold_bp);
-    const dso = Number(values.dso);
-    const dso_threshold = Number(values.dso_threshold);
-    const ar_over60 = Number(values.ar_over60);
-    const ar_total = Number(values.ar_total);
-    const ar_pct_threshold_bp = Number(values.ar_pct_threshold_bp);
-    const revenue12mo = Number(values.revenue12mo);
-    const revenue_threshold = Number(values.revenue_threshold);
-    const largest_cust_sales = Number(values.largest_cust_sales);
-    const total_sales = Number(values.total_sales);
-    const concentration_threshold_bp = Number(values.concentration_threshold_bp);
-
-    // Checks
-    const pctPaid = total_invoices > 0 ? (paid_invoices / total_invoices) * 100 : 0;
-    const reliable = pctPaid >= threshold_percent;
-    const dti = total_income > 0 ? (total_debt / total_income) * 10000 : 0; // basis points
-    const dtiPass = dti <= dti_threshold_bp;
-    const dsoPass = dso <= dso_threshold;
-    const ar_pct = ar_total > 0 ? (ar_over60 / ar_total) * 10000 : 0;
-    const arAgingPass = ar_pct <= ar_pct_threshold_bp;
-    const revenuePass = revenue12mo >= revenue_threshold;
-    const concentration = total_sales > 0 ? (largest_cust_sales / total_sales) * 10000 : 0;
-    const concentrationPass = concentration <= concentration_threshold_bp;
-
-    // Explanation
-    const criteria = [
-      {
-        key: "reliable",
-        label: "Invoice Reliability",
-        pass: reliable,
-        explanation: reliable
-          ? "Paid invoices meet threshold."
-          : "Paid invoices below threshold."
-      },
-      {
-        key: "dti",
-        label: "Debt-to-Income",
-        pass: dtiPass,
-        explanation: dtiPass
-          ? "DTI ratio is within safe bounds."
-          : "DTI ratio is too high."
-      },
-      {
-        key: "dso",
-        label: "DSO",
-        pass: dsoPass,
-        explanation: dsoPass
-          ? "DSO is within range."
-          : "DSO is too high."
-      },
-      {
-        key: "ar_aging",
-        label: "AR > 60 Days",
-        pass: arAgingPass,
-        explanation: arAgingPass
-          ? "AR aging is acceptable."
-          : "AR aging is too high."
-      },
-      {
-        key: "revenue",
-        label: "12mo Revenue",
-        pass: revenuePass,
-        explanation: revenuePass
-          ? "Revenue meets threshold."
-          : "Revenue below threshold."
-      },
-      {
-        key: "concentration",
-        label: "Customer Concentration",
-        pass: concentrationPass,
-        explanation: concentrationPass
-          ? "Customer concentration is safe."
-          : "Customer concentration too high."
-      }
-    ];
-    const overallPass = criteria.every((c) => c.pass === true);
-
-    return { proof: criteria.map(c => !!c.pass), criteria, overallPass };
-  }
-
-  // Form handler
+  // === ZK Prove button handler ===
   async function handleSubmit(e) {
     e.preventDefault();
-    setError(null);
     setLoading(true);
     setProof(null);
+    setError(null);
 
-    if (manualMode) {
-      // Local score, no backend call!
-      const localScore = calculateManualScorecard(inputs);
-      setProof({ ...localScore, nargoOutput: "Local JS calculation (no ZK proof)" });
-      setLoading(false);
-      return;
-    }
-
-    // Call backend for ZK/connected mode
     try {
       const res = await fetch(API_URL, {
         method: "POST",
@@ -183,39 +85,60 @@ export default function App() {
       }}>
         <h2 style={{ textAlign: "center" }}>🔒 FastPass Lending Score <br /><span style={{fontSize:18, color:"#999"}}>Automated, Tamper-Proof ZK Reports</span></h2>
         
-        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:10}}>
-          <label style={{fontSize:14}}>
-            <input
-              type="checkbox"
-              checked={!manualMode}
-              onChange={e => setManualMode(!e.target.checked)}
-              style={{marginRight:7}}
-            />
-            Connect to QuickBooks (ZK Proof)
-          </label>
-        </div>
-
         <form onSubmit={handleSubmit}>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-            {/* Input fields */}
-            {Object.entries(inputs).map(([key, value]) => (
-              <label key={key}>
-                {fieldLabels[key] || key}
-                <br />
-                <input
-                  name={key}
-                  value={value}
-                  onChange={handleChange}
-                  type="number"
-                  min={0}
-                  required
-                  style={inputStyle}
-                />
-              </label>
-            ))}
+            {/* These can be made smarter with labels, QuickBooks integration, etc. */}
+            <label>Total Invoices<br/>
+              <input name="total_invoices" value={inputs.total_invoices} onChange={handleChange} type="number" min={1} required style={inputStyle} />
+            </label>
+            <label>Paid Invoices<br/>
+              <input name="paid_invoices" value={inputs.paid_invoices} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>Reliability Threshold (%)<br/>
+              <input name="threshold_percent" value={inputs.threshold_percent} onChange={handleChange} type="number" min={50} max={100} required style={inputStyle} />
+            </label>
+            <label>Total Debt<br/>
+              <input name="total_debt" value={inputs.total_debt} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>Total Income<br/>
+              <input name="total_income" value={inputs.total_income} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>DTI Threshold (bp)<br/>
+              <input name="dti_threshold_bp" value={inputs.dti_threshold_bp} onChange={handleChange} type="number" min={0} max={10000} required style={inputStyle} />
+            </label>
+            <label>DSO<br/>
+              <input name="dso" value={inputs.dso} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>DSO Threshold<br/>
+              <input name="dso_threshold" value={inputs.dso_threshold} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>AR Over 60<br/>
+              <input name="ar_over60" value={inputs.ar_over60} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>AR Total<br/>
+              <input name="ar_total" value={inputs.ar_total} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>AR % Threshold (bp)<br/>
+              <input name="ar_pct_threshold_bp" value={inputs.ar_pct_threshold_bp} onChange={handleChange} type="number" min={0} max={10000} required style={inputStyle} />
+            </label>
+            <label>12mo Revenue<br/>
+              <input name="revenue12mo" value={inputs.revenue12mo} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>Revenue Threshold<br/>
+              <input name="revenue_threshold" value={inputs.revenue_threshold} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>Largest Cust. Sales<br/>
+              <input name="largest_cust_sales" value={inputs.largest_cust_sales} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>Total Sales<br/>
+              <input name="total_sales" value={inputs.total_sales} onChange={handleChange} type="number" min={0} required style={inputStyle} />
+            </label>
+            <label>Concentration % Threshold (bp)<br/>
+              <input name="concentration_threshold_bp" value={inputs.concentration_threshold_bp} onChange={handleChange} type="number" min={0} max={10000} required style={inputStyle} />
+            </label>
           </div>
           <button disabled={loading} style={btnStyle}>
-            {loading ? "Scoring..." : manualMode ? "Score (Free)" : "Generate ZK Scorecard"}
+            {loading ? "Proving..." : "Generate ZK Scorecard"}
           </button>
         </form>
 
@@ -241,7 +164,7 @@ export default function App() {
               {proof.overallPass == null && "— Not Enough Data to Score"}
             </div>
             <details style={{marginTop: 12}}>
-              <summary>Show Score Output</summary>
+              <summary>Show ZK Proof Output</summary>
               <pre style={{
                 background: "#eee", padding: 8, borderRadius: 6, fontSize: 13, overflowX: "auto"
               }}>{proof.nargoOutput}</pre>
@@ -260,26 +183,6 @@ export default function App() {
     </div>
   );
 }
-
-// --- Field Labels ---
-const fieldLabels = {
-  total_invoices: "Total Invoices",
-  paid_invoices: "Paid Invoices",
-  threshold_percent: "Reliability Threshold (%)",
-  total_debt: "Total Debt",
-  total_income: "Total Income",
-  dti_threshold_bp: "DTI Threshold (bp)",
-  dso: "DSO",
-  dso_threshold: "DSO Threshold",
-  ar_over60: "AR Over 60",
-  ar_total: "AR Total",
-  ar_pct_threshold_bp: "AR % Threshold (bp)",
-  revenue12mo: "12mo Revenue",
-  revenue_threshold: "Revenue Threshold",
-  largest_cust_sales: "Largest Cust. Sales",
-  total_sales: "Total Sales",
-  concentration_threshold_bp: "Concentration % Threshold (bp)"
-};
 
 // === Styles ===
 const inputStyle = {
