@@ -8,11 +8,30 @@ const QB_FINANCIAL_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/a
 
 export default function App() {
   // App state
-  const [inputs, setInputs] = useState({
-    total_invoices: "",
-    paid_invoices: "",
-    threshold_percent: 90,   // Default to 90%
-  });
+ const [inputs, setInputs] = useState({
+  total_invoices: "",
+  paid_invoices: "",
+  threshold_percent: 90,   // 1. Reliability
+
+  total_debt: "",
+  total_income: "",
+  dti_threshold_bp: 4000,  // 2. DTI (default 40.00%)
+
+  dso: "",
+  dso_threshold: 45,       // 3. DSO (default 45)
+
+  ar_over60: "",
+  ar_total: "",
+  ar_pct_threshold_bp: 1000, // 4. AR Aging (default 10%)
+
+  revenue12mo: "",
+  revenue_threshold: 120000, // 5. Revenue (default $120k)
+
+  largest_cust_sales: "",
+  total_sales: "",
+  concentration_threshold_bp: 5000 // 6. Concentration (default 50%)
+});
+
   const [loading, setLoading] = useState(false);
   const [proof, setProof] = useState(null);
   const [error, setError] = useState(null);
@@ -48,36 +67,42 @@ export default function App() {
   }
 
   // Fetch invoice summary automatically when connected
-  useEffect(() => {
-    if (qbConnected) {
-      fetch(QB_SUMMARY_URL)
-        .then(res => res.json())
-        .then(data => {
-          if (data.error) throw new Error(data.error);
-          setInputs(inputs => ({
-            ...inputs,
-            total_invoices: data.total,
-            paid_invoices: data.paid,
-          }));
-        })
-        .catch(err => setError(err.message));
-    }
-  }, [qbConnected]);
-
-  // Fetch DTI when connected
-  useEffect(() => {
-    if (qbConnected) {
-      fetch(QB_FINANCIAL_URL)
-        .then(res => res.json())
-        .then(data => {
-          if (data.error) throw new Error(data.error);
-          const dtiRatio = data.totalIncome > 0 ? data.totalDebt / data.totalIncome : null;
-          setDti(dtiRatio);
-          setDtiPassed(dtiRatio !== null ? dtiRatio <= 0.4 : null); // Pass if 40% or less
-        })
-        .catch(err => setError(err.message));
-    }
-  }, [qbConnected]);
+ useEffect(() => {
+  if (qbConnected) {
+    setLoading(true);
+    fetch(QB_SUMMARY_URL)
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) throw new Error(data.error);
+        setInputs(inputs => ({
+          ...inputs,
+          total_invoices: data.total,
+          paid_invoices: data.paid,
+          dso: data.dso,
+          ar_over60: data.ar_over60,
+          ar_total: data.ar_total,
+          revenue12mo: data.revenue12mo,
+          largest_cust_sales: data.largest_cust_sales,
+          total_sales: data.total_sales
+          // ...add the rest as available from QB API
+        }));
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+      
+    fetch(QB_FINANCIAL_URL)
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) throw new Error(data.error);
+        setInputs(inputs => ({
+          ...inputs,
+          total_debt: data.totalDebt,
+          total_income: data.totalIncome
+        }));
+      })
+      .catch(err => setError(err.message));
+  }
+}, [qbConnected]);
 
   // Auto-generate proof when numbers or threshold change and connected
   useEffect(() => {
@@ -145,29 +170,44 @@ export default function App() {
 
   // This runs auto (no event param!)
   async function autoGenerateProof() {
-    setLoading(true);
-    setProof(null);
-    setError(null);
+  setLoading(true);
+  setProof(null);
+  setError(null);
 
-    try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          total_invoices: Number(inputs.total_invoices),
-          paid_invoices: Number(inputs.paid_invoices),
-          threshold_percent: Number(inputs.threshold_percent)
-        })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setProof(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        total_invoices: Number(inputs.total_invoices),
+        paid_invoices: Number(inputs.paid_invoices),
+        threshold_percent: Number(inputs.threshold_percent),
+        total_debt: Number(inputs.total_debt),
+        total_income: Number(inputs.total_income),
+        dti_threshold_bp: Number(inputs.dti_threshold_bp),
+        dso: Number(inputs.dso),
+        dso_threshold: Number(inputs.dso_threshold),
+        ar_over60: Number(inputs.ar_over60),
+        ar_total: Number(inputs.ar_total),
+        ar_pct_threshold_bp: Number(inputs.ar_pct_threshold_bp),
+        revenue12mo: Number(inputs.revenue12mo),
+        revenue_threshold: Number(inputs.revenue_threshold),
+        largest_cust_sales: Number(inputs.largest_cust_sales),
+        total_sales: Number(inputs.total_sales),
+        concentration_threshold_bp: Number(inputs.concentration_threshold_bp),
+      })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    setProof(data);
+    setScorecard(data.scorecard); // use unified scorecard from backend
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setLoading(false);
   }
+}
+
 
   // Manual submit (form)
   async function handleSubmit(e) {
