@@ -336,7 +336,7 @@ export default function App() {
 {proof && (
   <div style={{marginTop: 28, padding: 16, background: "#eef6ff", borderRadius: 12}}>
     <h3>
-      {proof.isReliable
+      {proof.criteria && proof.criteria[0] && proof.criteria[0].pass
         ? <span style={{color: "#14b314"}}>✅ Reliable</span>
         : <span style={{color: "#d31717"}}>❌ Not Reliable</span>}
     </h3>
@@ -348,6 +348,7 @@ export default function App() {
     </details>
   </div>
 )}
+
 
 {/* DTI manual display for manual entry */}
 {!qbConnected && inputs.total_debt && inputs.total_income && (
