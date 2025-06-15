@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 
 const API_URL = "https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/prove-reliability";
+// Add your QB endpoints as needed
 
 export default function App() {
   // Expanded state for ALL 6 ZK checks
