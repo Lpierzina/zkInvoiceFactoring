@@ -198,7 +198,9 @@ export default function App() {
       : {
           total_invoices: Number(inputs.total_invoices),
           paid_invoices: Number(inputs.paid_invoices),
-          threshold_percent: Number(inputs.threshold_percent)
+          threshold_percent: Number(inputs.threshold_percent),
+          dti_threshold_bp: Number(inputs.dti_threshold_bp)   // 👈 ADD THIS
+
         };
     const res = await fetch(API_URL, {
       method: "POST",
