@@ -376,20 +376,21 @@ export default function App() {
 
 
         {/* Combined results */}
-        {proof && dti !== null && (
-          <div style={{marginTop: 22, padding: 14, background: "#f9f5e7", borderRadius: 12, textAlign: "center"}}>
-            <h3 style={{margin: 0}}>
-              {proof.isReliable && dtiPassed
-                ? <span style={{color: "#14b314"}}>✅ Passes Both Reliability & DTI</span>
-                : !proof.isReliable && !dtiPassed
-                  ? <span style={{color: "#d31717"}}>❌ Fails Both</span>
-                  : proof.isReliable
-                    ? <span style={{color: "#e67e22"}}>🟧 Passes Reliability Only</span>
-                    : <span style={{color: "#e67e22"}}>🟧 Passes DTI Only</span>
-              }
-            </h3>
-          </div>
-        )}
+       {proof && proof.criteria && proof.criteria.length >= 2 && (
+  <div style={{marginTop: 22, padding: 14, background: "#f9f5e7", borderRadius: 12, textAlign: "center"}}>
+    <h3 style={{margin: 0}}>
+      {proof.criteria[0].pass && proof.criteria[1].pass
+        ? <span style={{color: "#14b314"}}>✅ Passes Both Reliability & DTI</span>
+        : !proof.criteria[0].pass && !proof.criteria[1].pass
+          ? <span style={{color: "#d31717"}}>❌ Fails Both</span>
+          : proof.criteria[0].pass
+            ? <span style={{color: "#e67e22"}}>🟧 Passes Reliability Only</span>
+            : <span style={{color: "#e67e22"}}>🟧 Passes DTI Only</span>
+      }
+    </h3>
+  </div>
+)}
+
 {scorecard && (
   <div style={{ marginTop: 32, background: "#f5fff0", borderRadius: 14, padding: 20 }}>
     <h3 style={{ marginTop: 0 }}>📋 Lender Scorecard</h3>
