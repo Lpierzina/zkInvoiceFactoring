@@ -332,12 +332,15 @@ export default function App() {
 </form>
 
         {/* Proof result */}
-  {proof && (
+ {proof && (
   <div style={{marginTop: 28, padding: 16, background: "#eef6ff", borderRadius: 12}}>
     <h3>
-      {proof.proof && proof.proof[0]
-        ? <span style={{color: "#14b314"}}>✅ Reliable</span>
-        : <span style={{color: "#d31717"}}>❌ Not Reliable</span>}
+      {(() => {
+        // accept bool, 1/0, "1"/"0", "Field(1)"
+        let v = proof.proof && proof.proof[0];
+        if (v === true || v === 1 || v === "1" || v === "Field(1)" || v === 1n) return <span style={{color: "#14b314"}}>✅ Reliable</span>;
+        return <span style={{color: "#d31717"}}>❌ Not Reliable</span>;
+      })()}
     </h3>
     <details style={{marginTop: 8}}>
       <summary>Show ZK Proof Output</summary>
