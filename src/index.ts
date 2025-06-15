@@ -27,6 +27,7 @@ const RELIABILITY_DIR = path.join(PROJECT_ROOT, "invoice_reliability");
 const NARGO_BIN = path.join(PROJECT_ROOT, "bin", "nargo");
 
 app.post('/api/prove-reliability', (req, res) => {
+  // Always set every variable, but check which fields are present.
   const {
     total_invoices, paid_invoices, threshold_percent,
     total_debt, total_income, dti_threshold_bp,
@@ -36,6 +37,7 @@ app.post('/api/prove-reliability', (req, res) => {
     largest_cust_sales, total_sales, concentration_threshold_bp
   } = req.body;
 
+  // Build the toml as before, defaulting missing to 0.
   const toml = `
 total_invoices = ${Number(total_invoices) || 0}
 paid_invoices = ${Number(paid_invoices) || 0}
@@ -66,15 +68,33 @@ concentration_threshold_bp = ${Number(concentration_threshold_bp) || 0}
     const match = result.match(/\[([01, ]+)\]/);
     const bools = match ? match[1].split(",").map(x => x.trim() === "1") : [false, false, false, false, false, false];
 
-    const criteria = [
-      { key: "reliable", label: "Invoice Reliability", pass: bools[0], explanation: bools[0] ? "Paid invoices meet threshold." : "Paid invoices below threshold." },
-      { key: "dti", label: "Debt-to-Income", pass: bools[1], explanation: bools[1] ? "DTI ratio is within safe bounds." : "DTI ratio is too high." },
-      { key: "dso", label: "DSO", pass: bools[2], explanation: bools[2] ? "DSO is within range." : "DSO is too high." },
-      { key: "ar_aging", label: "AR > 60 Days", pass: bools[3], explanation: bools[3] ? "AR aging is acceptable." : "AR aging is too high." },
-      { key: "revenue", label: "12mo Revenue", pass: bools[4], explanation: bools[4] ? "Revenue meets threshold." : "Revenue below threshold." },
-      { key: "concentration", label: "Customer Concentration", pass: bools[5], explanation: bools[5] ? "Customer concentration is safe." : "Customer concentration too high." }
-    ];
-    const overallPass = bools.every(Boolean);
+    // Build minimal or full criteria list depending on what's present
+    let criteria;
+    let overallPass;
+    if (
+      // Only minimal fields sent (manual mode)
+      typeof total_invoices !== "undefined" &&
+      typeof paid_invoices !== "undefined" &&
+      typeof threshold_percent !== "undefined" &&
+      !req.body.dso && !req.body.ar_total && !req.body.largest_cust_sales // crude but works
+    ) {
+      criteria = [
+        { key: "reliable", label: "Invoice Reliability", pass: bools[0], explanation: bools[0] ? "Paid invoices meet threshold." : "Paid invoices below threshold." },
+        { key: "dti", label: "Debt-to-Income", pass: bools[1], explanation: bools[1] ? "DTI ratio is within safe bounds." : "DTI ratio is too high." }
+      ];
+      overallPass = bools[0] && bools[1];
+    } else {
+      // QuickBooks/Full Scorecard Mode
+      criteria = [
+        { key: "reliable", label: "Invoice Reliability", pass: bools[0], explanation: bools[0] ? "Paid invoices meet threshold." : "Paid invoices below threshold." },
+        { key: "dti", label: "Debt-to-Income", pass: bools[1], explanation: bools[1] ? "DTI ratio is within safe bounds." : "DTI ratio is too high." },
+        { key: "dso", label: "DSO", pass: bools[2], explanation: bools[2] ? "DSO is within range." : "DSO is too high." },
+        { key: "ar_aging", label: "AR > 60 Days", pass: bools[3], explanation: bools[3] ? "AR aging is acceptable." : "AR aging is too high." },
+        { key: "revenue", label: "12mo Revenue", pass: bools[4], explanation: bools[4] ? "Revenue meets threshold." : "Revenue below threshold." },
+        { key: "concentration", label: "Customer Concentration", pass: bools[5], explanation: bools[5] ? "Customer concentration is safe." : "Customer concentration too high." }
+      ];
+      overallPass = bools.every(Boolean);
+    }
 
     res.json({
       proof: bools,
