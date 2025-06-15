@@ -195,4 +195,4 @@ const btnStyle = {
   width: "100%", padding: "14px 0", fontSize: 18,
   background: "linear-gradient(90deg,#00c6ff,#0072ff)", color: "#fff",
   border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 700
-};
+}; 
