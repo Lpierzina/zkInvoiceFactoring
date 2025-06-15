@@ -39,9 +39,7 @@ export default function App() {
   const [scorecard, setScorecard] = useState(null);
 
 
-  // DTI state
-  const [dti, setDti] = useState(null);
-  const [dtiPassed, setDtiPassed] = useState(null);
+  
 
   useEffect(() => {
     console.log('proof', proof);
