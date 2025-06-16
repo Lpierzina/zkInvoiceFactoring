@@ -336,47 +336,29 @@ export default function App() {
   </button>
 </form>
 
-        {/* Proof result */}
- {proof && (
-  <div style={{marginTop: 28, padding: 16, background: "#eef6ff", borderRadius: 12}}>
-    <h3>
-      {proof.criteria && proof.criteria[0] && proof.criteria[0].pass
-        ? <span style={{color: "#14b314"}}>✅ Reliable</span>
-        : <span style={{color: "#d31717"}}>❌ Not Reliable</span>}
-    </h3>
-    <details style={{marginTop: 8}}>
-      <summary>Show ZK Proof Output</summary>
-      <pre style={{
-        background: "#eee", padding: 8, borderRadius: 6, fontSize: 13, overflowX: "auto"
-      }}>{proof.nargoOutput}</pre>
-    </details>
-  </div>
-)}
-
-
-
-
-{/* DTI manual display for manual entry */}
-{!qbConnected && inputs.total_debt && inputs.total_income && (
-  <div style={{marginTop: 18, padding: 12, background: "#ffe", borderRadius: 10}}>
+  {/* DTI result, from ZK Proof (authoritative) */}
+{proof && proof.criteria && proof.criteria[1] && (
+  <div style={{marginTop: 18, padding: 12, background: "#e0ffe0", borderRadius: 10}}>
     <b>Debt-to-Income Ratio:</b>{" "}
-    {(inputs.total_income > 0 ? (inputs.total_debt / inputs.total_income) * 100 : 0).toFixed(1)}%
+    {/* This is just for display, optional: */}
+    {inputs.total_income > 0
+      ? ((inputs.total_debt / inputs.total_income) * 100).toFixed(1)
+      : "0"
+    }%
     <div>
-      {inputs.total_income > 0
-        ? (inputs.total_debt / inputs.total_income) <= 0.4
-          ? <span style={{color: "#14b314"}}>✅ Pass</span>
-          : <span style={{color: "#d31717"}}>❌ Fail</span>
-        : "—"
+      {proof.criteria[1].pass
+        ? <span style={{color: "#14b314"}}>✅ Pass</span>
+        : <span style={{color: "#d31717"}}>❌ Fail</span>
       }
+      <span style={{marginLeft: 10, fontSize: 12, color: "#666"}}>
+        (ZK Proof)
+      </span>
     </div>
   </div>
 )}
 
-{/* Combined results for connected mode... */}
-
-
-        {/* Combined results */}
-       {proof && proof.criteria && proof.criteria.length >= 2 && (
+{/* Combined results: ZK proof only */}
+{proof && proof.criteria && proof.criteria.length >= 2 && (
   <div style={{marginTop: 22, padding: 14, background: "#f9f5e7", borderRadius: 12, textAlign: "center"}}>
     <h3 style={{margin: 0}}>
       {proof.criteria[0].pass && proof.criteria[1].pass
@@ -388,8 +370,12 @@ export default function App() {
             : <span style={{color: "#e67e22"}}>🟧 Passes DTI Only</span>
       }
     </h3>
+    <div style={{marginTop: 6, fontSize: 12, color: "#666"}}>
+      (All ZK proof-verified)
+    </div>
   </div>
 )}
+
 
 {scorecard && (
   <div style={{ marginTop: 32, background: "#f5fff0", borderRadius: 14, padding: 20 }}>
