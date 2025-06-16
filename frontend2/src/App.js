@@ -100,10 +100,10 @@ export default function App() {
       .then(data => {
         if (data.error) throw new Error(data.error);
         setInputs(inputs => ({
-  ...inputs,
-  total_debt: Math.round(data.totalDebt ?? 0),
-  total_income: Math.round(data.totalIncome ?? 0)
-}));
+          ...inputs,
+          total_debt: data.totalDebt,
+          total_income: data.totalIncome
+        }));
       })
       .catch(err => setError(err.message));
   }
