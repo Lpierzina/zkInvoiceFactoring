@@ -26,6 +26,14 @@ function fill(x: any, def: any) {
   return (typeof x !== "undefined" && x !== "" && x !== null) ? x : def;
 }
 
+// Helper to always write integers
+function toInt(x: any, def: number) {
+  const n = Number(x);
+  if (isNaN(n) || x === "" || x === undefined || x === null) return def;
+  return Math.round(n); // or Math.floor(n) if you prefer
+}
+
+
 app.post('/api/prove-reliability', (req, res) => {
   const {
     total_invoices, paid_invoices, threshold_percent,
