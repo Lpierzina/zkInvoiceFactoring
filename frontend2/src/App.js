@@ -354,14 +354,18 @@ async function autoGenerateProof() {
     {(inputs.total_income > 0 ? (inputs.total_debt / inputs.total_income) * 100 : 0).toFixed(1)}%
     <div>
       {inputs.total_income > 0
-        ? (inputs.total_debt / inputs.total_income) <= 0.4
+        ? (inputs.total_debt / inputs.total_income) <= ((inputs.dti_threshold_bp || 4000) / 10000)
           ? <span style={{color: "#14b314"}}>✅ Pass</span>
           : <span style={{color: "#d31717"}}>❌ Fail</span>
         : "—"
       }
+      <span style={{color:"#888",marginLeft:8}}>
+        (Threshold: {(inputs.dti_threshold_bp || 4000) / 100}%)
+      </span>
     </div>
   </div>
 )}
+
 
 {/* Combined results for connected mode... */}
 
