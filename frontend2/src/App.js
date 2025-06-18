@@ -36,7 +36,7 @@ export default function App() {
   const [proof, setProof] = useState(null);
   const [error, setError] = useState(null);
   const [qbConnected, setQBConnected] = useState(false);
-  const [scorecard, setScorecard] = useState(null);
+  
 
 
   
@@ -123,19 +123,7 @@ export default function App() {
   }, [inputs.total_invoices, inputs.paid_invoices, inputs.threshold_percent, qbConnected]);
 
 
-  useEffect(() => {
-  if (qbConnected) {
-    setScorecard(null); // Reset before fetching
-    fetch("https://zkinvoice-backend-f15c33da94bc.herokuapp.com/api/quickbooks/lender-scorecard")
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) throw new Error(data.error);
-        setScorecard(data);
-      })
-      .catch(err => setError(err.message));
-  }
-}, [qbConnected]);
-
+  
 
 
   // QuickBooks Connect: Popup handler
@@ -174,7 +162,9 @@ export default function App() {
   }
 
   // This runs auto (no event param!)
-  async function autoGenerateProof() {
+  // ...snip, rest of component code unchanged...
+
+async function autoGenerateProof() {
   setLoading(true);
   setProof(null);
   setError(null);
@@ -204,8 +194,7 @@ export default function App() {
           total_invoices: Number(inputs.total_invoices),
           paid_invoices: Number(inputs.paid_invoices),
           threshold_percent: Number(inputs.threshold_percent),
-          dti_threshold_bp: Number(inputs.dti_threshold_bp)   // 👈 ADD THIS
-
+          dti_threshold_bp: Number(inputs.dti_threshold_bp)
         };
     const res = await fetch(API_URL, {
       method: "POST",
@@ -215,7 +204,8 @@ export default function App() {
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     setProof(data);
-    if (qbConnected) setScorecard(data.scorecard);
+    // REMOVE THIS LINE! ⬇️
+    // if (qbConnected) setScorecard(data.scorecard);
   } catch (err) {
     setError(err.message);
   } finally {
@@ -376,26 +366,11 @@ export default function App() {
 
 
         {/* Combined results */}
-       {proof && proof.criteria && proof.criteria.length >= 2 && (
-  <div style={{marginTop: 22, padding: 14, background: "#f9f5e7", borderRadius: 12, textAlign: "center"}}>
-    <h3 style={{margin: 0}}>
-      {proof.criteria[0].pass && proof.criteria[1].pass
-        ? <span style={{color: "#14b314"}}>✅ Passes Both Reliability & DTI</span>
-        : !proof.criteria[0].pass && !proof.criteria[1].pass
-          ? <span style={{color: "#d31717"}}>❌ Fails Both</span>
-          : proof.criteria[0].pass
-            ? <span style={{color: "#e67e22"}}>🟧 Passes Reliability Only</span>
-            : <span style={{color: "#e67e22"}}>🟧 Passes DTI Only</span>
-      }
-    </h3>
-  </div>
-)}
-
-{scorecard && (
+     {proof && proof.criteria && (
   <div style={{ marginTop: 32, background: "#f5fff0", borderRadius: 14, padding: 20 }}>
     <h3 style={{ marginTop: 0 }}>📋 Lender Scorecard</h3>
     <ul style={{ listStyle: "none", padding: 0, fontSize: 15 }}>
-      {scorecard.criteria.map((c, i) => (
+      {proof.criteria.map((c, i) => (
         <li key={c.key} style={{ marginBottom: 18, display: "flex", alignItems: "center" }}>
           <span style={{ fontWeight: 600, marginRight: 10 }}>{c.label}:</span>
           {c.pass === null ? <span style={{fontWeight:600,marginRight:6}}>—</span>
@@ -408,12 +383,13 @@ export default function App() {
       ))}
     </ul>
     <div style={{ marginTop: 18, fontWeight: 600, fontSize: 16, textAlign: "center" }}>
-      {scorecard.overallPass === true && "✅ Passes All Lender Criteria"}
-      {scorecard.overallPass === false && "⚠️ Fails One or More Lender Checks"}
-      {scorecard.overallPass === null && "— Not Enough Data to Score"}
+      {proof.overallPass === true && "✅ Passes All Lender Criteria"}
+      {proof.overallPass === false && "⚠️ Fails One or More Lender Checks"}
+      {proof.overallPass === null && "— Not Enough Data to Score"}
     </div>
   </div>
 )}
+
 
 
         {/* Error */}
