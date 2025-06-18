@@ -46,11 +46,12 @@ app.post('/api/prove-reliability', (req, res) => {
 
   // Detect manual mode: if certain fields are missing, assume manual form
   const isManual =
-    !req.body.dso &&
-    !req.body.ar_total &&
-    !req.body.largest_cust_sales &&
-    !req.body.revenue12mo &&
-    !req.body.total_sales;
+  req.body.dso == null ||
+  req.body.ar_total == null ||
+  req.body.largest_cust_sales == null ||
+  req.body.revenue12mo == null ||
+  req.body.total_sales == null;
+
 
   // Always write TOML with integers
   const toml = `
