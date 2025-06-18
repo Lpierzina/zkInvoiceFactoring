@@ -52,9 +52,7 @@ app.post('/api/prove-reliability', (req, res) => {
     !req.body.revenue12mo &&
     !req.body.total_sales;
 
-  // Fill defaults for "pass" for unused fields if manual mode.
-  // These values should guarantee each check passes unless the user is actually filling them in.
-  // For passing: thresholds are set so check always passes, and numerators/denominators are non-failing.
+  // Always write TOML with integers
   const toml = `
 total_invoices = ${toInt(total_invoices, 1)}
 paid_invoices = ${toInt(paid_invoices, 1)}
@@ -74,47 +72,103 @@ total_sales = ${toInt(total_sales, 1)}
 concentration_threshold_bp = ${toInt(concentration_threshold_bp, isManual ? 10000 : 5000)}
 `;
 
-
   const proverPath = path.join(RELIABILITY_DIR, "Prover.toml");
   fs.writeFileSync(proverPath, toml);
 
   try {
-  const result = execSync(`${NARGO_BIN} execute`, {
-    cwd: RELIABILITY_DIR
-  }).toString();
+    const result = execSync(`${NARGO_BIN} execute`, {
+      cwd: RELIABILITY_DIR
+    }).toString();
 
-  // --- PATCHED: Parse Field(1) correctly ---
-  const fieldMatches = [...result.matchAll(/Field\((\d)\)/g)];
-  const bools = fieldMatches.map(m => m[1] === "1");
-  while (bools.length < 6) bools.push(false); // always fill to 6
+    // Parse Field(1) output to boolean
+    const fieldMatches = [...result.matchAll(/Field\((\d)\)/g)];
+    const bools = fieldMatches.map(m => m[1] === "1");
+    while (bools.length < 6) bools.push(false); // always fill to 6
 
-  let criteria;
-  let overallPass;
-  if (isManual) {
-    criteria = [
-      { key: "reliable", label: "Invoice Reliability", pass: bools[0], explanation: bools[0] ? "Paid invoices meet threshold." : "Paid invoices below threshold." },
-      { key: "dti", label: "Debt-to-Income", pass: bools[1], explanation: bools[1] ? "DTI ratio is within safe bounds." : "DTI ratio is too high." }
-    ];
-    overallPass = bools[0] && bools[1];
-  } else {
-    criteria = [
-      { key: "reliable", label: "Invoice Reliability", pass: bools[0], explanation: bools[0] ? "Paid invoices meet threshold." : "Paid invoices below threshold." },
-      { key: "dti", label: "Debt-to-Income", pass: bools[1], explanation: bools[1] ? "DTI ratio is within safe bounds." : "DTI ratio is too high." },
-      { key: "dso", label: "DSO", pass: bools[2], explanation: bools[2] ? "DSO is within range." : "DSO is too high." },
-      { key: "ar_aging", label: "AR > 60 Days", pass: bools[3], explanation: bools[3] ? "AR aging is acceptable." : "AR aging is too high." },
-      { key: "revenue", label: "12mo Revenue", pass: bools[4], explanation: bools[4] ? "Revenue meets threshold." : "Revenue below threshold." },
-      { key: "concentration", label: "Customer Concentration", pass: bools[5], explanation: bools[5] ? "Customer concentration is safe." : "Customer concentration too high." }
-    ];
-    overallPass = bools.every(Boolean);
-  }
+    let criteria;
+    let overallPass;
 
-  res.json({
-    proof: bools,
-    nargoOutput: result,
-    criteria,
-    overallPass
-  });
-} catch (e) {
+    if (isManual) {
+      criteria = [
+        {
+          key: "reliable",
+          label: "Invoice Reliability",
+          pass: bools[0],
+          explanation: bools[0]
+            ? "Were enough invoices paid to meet the required reliability threshold? (Default: 90% paid invoices needed.)"
+            : "Paid invoices below threshold."
+        },
+        {
+          key: "dti",
+          label: "Debt-to-Income Ratio",
+          pass: bools[1],
+          explanation: bools[1]
+            ? "Debt-to-income ratio is within a healthy range (default: under 40%)."
+            : "DTI ratio is too high."
+        }
+      ];
+      overallPass = bools[0] && bools[1];
+    } else {
+      criteria = [
+        {
+          key: "reliable",
+          label: "Invoice Reliability",
+          pass: bools[0],
+          explanation: bools[0]
+            ? "Were enough invoices paid to meet the required reliability threshold? (90%+ paid is required for most lenders.)"
+            : "Paid invoices below threshold."
+        },
+        {
+          key: "dti",
+          label: "Debt-to-Income Ratio",
+          pass: bools[1],
+          explanation: bools[1]
+            ? "Does the business have a safe amount of unpaid debt compared to its income? (Below 40% is considered healthy.)"
+            : "DTI ratio is too high."
+        },
+        {
+          key: "dso",
+          label: "Days Sales Outstanding (DSO)",
+          pass: bools[2],
+          explanation: bools[2]
+            ? "Is the business paid quickly after issuing invoices? (Under 45 days is preferred.)"
+            : "DSO is too high."
+        },
+        {
+          key: "ar_aging",
+          label: "AR Overdue (>60 days)",
+          pass: bools[3],
+          explanation: bools[3]
+            ? "Is a low portion of accounts receivable overdue by more than 60 days? (Less than 10% is ideal.)"
+            : "AR aging is too high."
+        },
+        {
+          key: "revenue",
+          label: "Annual Revenue",
+          pass: bools[4],
+          explanation: bools[4]
+            ? "Does the business generate at least $120,000 in revenue per year? (Most lenders require this minimum.)"
+            : "Revenue below threshold."
+        },
+        {
+          key: "concentration",
+          label: "Customer Concentration",
+          pass: bools[5],
+          explanation: bools[5]
+            ? "Is the business not too reliant on a single customer? (Largest customer should be less than 50% of total sales.)"
+            : "Customer concentration too high."
+        }
+      ];
+      overallPass = bools.every(Boolean);
+    }
+
+    res.json({
+      proof: bools,
+      nargoOutput: result,
+      criteria,
+      overallPass
+    });
+  } catch (e) {
     let msg = "Unknown error";
     let nargoOutput = undefined;
     if (e instanceof Error) {
@@ -126,6 +180,7 @@ concentration_threshold_bp = ${toInt(concentration_threshold_bp, isManual ? 1000
     res.status(500).json({ error: msg, nargoOutput });
   }
 });
+
 
 // Fallback
 app.use((req, res) => {
