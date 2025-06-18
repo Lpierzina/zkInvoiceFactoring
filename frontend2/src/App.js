@@ -172,30 +172,31 @@ async function autoGenerateProof() {
   try {
     // If QuickBooks is connected, send all fields for scorecard
     const payload = qbConnected
-      ? {
-          total_invoices: Number(inputs.total_invoices),
-          paid_invoices: Number(inputs.paid_invoices),
-          threshold_percent: Number(inputs.threshold_percent),
-          total_debt: Number(inputs.total_debt),
-          total_income: Number(inputs.total_income),
-          dti_threshold_bp: Number(inputs.dti_threshold_bp),
-          dso: Number(inputs.dso),
-          dso_threshold: Number(inputs.dso_threshold),
-          ar_over60: Number(inputs.ar_over60),
-          ar_total: Number(inputs.ar_total),
-          ar_pct_threshold_bp: Number(inputs.ar_pct_threshold_bp),
-          revenue12mo: Number(inputs.revenue12mo),
-          revenue_threshold: Number(inputs.revenue_threshold),
-          largest_cust_sales: Number(inputs.largest_cust_sales),
-          total_sales: Number(inputs.total_sales),
-          concentration_threshold_bp: Number(inputs.concentration_threshold_bp)
-        }
-      : {
-          total_invoices: Number(inputs.total_invoices),
-          paid_invoices: Number(inputs.paid_invoices),
-          threshold_percent: Number(inputs.threshold_percent),
-          dti_threshold_bp: Number(inputs.dti_threshold_bp)
-        };
+  ? {
+      total_invoices: Number(inputs.total_invoices) || 0,
+      paid_invoices: Number(inputs.paid_invoices) || 0,
+      threshold_percent: Number(inputs.threshold_percent) || 90,
+      total_debt: Number(inputs.total_debt) || 0,
+      total_income: Number(inputs.total_income) || 0,
+      dti_threshold_bp: Number(inputs.dti_threshold_bp) || 4000,
+      dso: Number(inputs.dso) || 0,
+      dso_threshold: Number(inputs.dso_threshold) || 45,
+      ar_over60: Number(inputs.ar_over60) || 0,
+      ar_total: Number(inputs.ar_total) || 0,
+      ar_pct_threshold_bp: Number(inputs.ar_pct_threshold_bp) || 1000,
+      revenue12mo: Number(inputs.revenue12mo) || 0,
+      revenue_threshold: Number(inputs.revenue_threshold) || 120000,
+      largest_cust_sales: Number(inputs.largest_cust_sales) || 0,
+      total_sales: Number(inputs.total_sales) || 0,
+      concentration_threshold_bp: Number(inputs.concentration_threshold_bp) || 5000
+    }
+  : {
+      total_invoices: Number(inputs.total_invoices) || 0,
+      paid_invoices: Number(inputs.paid_invoices) || 0,
+      threshold_percent: Number(inputs.threshold_percent) || 90,
+      dti_threshold_bp: Number(inputs.dti_threshold_bp) || 4000
+    };
+
     const res = await fetch(API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
