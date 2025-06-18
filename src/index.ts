@@ -56,23 +56,24 @@ app.post('/api/prove-reliability', (req, res) => {
   // These values should guarantee each check passes unless the user is actually filling them in.
   // For passing: thresholds are set so check always passes, and numerators/denominators are non-failing.
   const toml = `
-total_invoices = ${fill(total_invoices, 1)}
-paid_invoices = ${fill(paid_invoices, 1)}
-threshold_percent = ${fill(threshold_percent, 0)}
-total_debt = ${fill(total_debt, 0)}
-total_income = ${fill(total_income, 1)}
-dti_threshold_bp = ${fill(dti_threshold_bp, 4000)}        # 40.00% DTI passes
-dso = ${fill(dso, 0)}
-dso_threshold = ${fill(dso_threshold, isManual ? 0 : 45)}  # 0 disables DSO check
-ar_over60 = ${fill(ar_over60, 0)}
-ar_total = ${fill(ar_total, 1)}
-ar_pct_threshold_bp = ${fill(ar_pct_threshold_bp, isManual ? 0 : 1000)}
-revenue12mo = ${fill(revenue12mo, isManual ? 999999999 : 0)}
-revenue_threshold = ${fill(revenue_threshold, isManual ? 0 : 120000)}
-largest_cust_sales = ${fill(largest_cust_sales, 0)}
-total_sales = ${fill(total_sales, 1)}
-concentration_threshold_bp = ${fill(concentration_threshold_bp, isManual ? 10000 : 5000)}
+total_invoices = ${toInt(total_invoices, 1)}
+paid_invoices = ${toInt(paid_invoices, 1)}
+threshold_percent = ${toInt(threshold_percent, 0)}
+total_debt = ${toInt(total_debt, 0)}
+total_income = ${toInt(total_income, 1)}
+dti_threshold_bp = ${toInt(dti_threshold_bp, 4000)}        # 40.00% DTI passes
+dso = ${toInt(dso, 0)}
+dso_threshold = ${toInt(dso_threshold, isManual ? 0 : 45)}
+ar_over60 = ${toInt(ar_over60, 0)}
+ar_total = ${toInt(ar_total, 1)}
+ar_pct_threshold_bp = ${toInt(ar_pct_threshold_bp, isManual ? 0 : 1000)}
+revenue12mo = ${toInt(revenue12mo, isManual ? 999999999 : 0)}
+revenue_threshold = ${toInt(revenue_threshold, isManual ? 0 : 120000)}
+largest_cust_sales = ${toInt(largest_cust_sales, 0)}
+total_sales = ${toInt(total_sales, 1)}
+concentration_threshold_bp = ${toInt(concentration_threshold_bp, isManual ? 10000 : 5000)}
 `;
+
 
   const proverPath = path.join(RELIABILITY_DIR, "Prover.toml");
   fs.writeFileSync(proverPath, toml);
