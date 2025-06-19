@@ -191,24 +191,15 @@ async function autoGenerateProof() {
           concentration_threshold_bp: Number(inputs.concentration_threshold_bp) || 5000
         }
       // --- THIS BLOCK IS FOR MANUAL MODE ONLY ---
-      : {
-          total_invoices: Number(inputs.total_invoices) || 0,
-          paid_invoices: Number(inputs.paid_invoices) || 0,
-          threshold_percent: Number(inputs.threshold_percent) || 90,
-          total_debt: Number(inputs.total_debt) || 0,
-          total_income: Number(inputs.total_income) || 0,
-          dti_threshold_bp: Number(inputs.dti_threshold_bp) || 4000,
-          dso: 0, // send as zero
-          dso_threshold: 0,
-          ar_over60: 0,
-          ar_total: 0,
-          ar_pct_threshold_bp: 0,
-          revenue12mo: 0,
-          revenue_threshold: 0,
-          largest_cust_sales: 0,
-          total_sales: 0,
-          concentration_threshold_bp: 0
-        };
+      :  {
+      total_invoices: Number(inputs.total_invoices) || 0,
+      paid_invoices: Number(inputs.paid_invoices) || 0,
+      threshold_percent: Number(inputs.threshold_percent) || 90,
+      total_debt: Number(inputs.total_debt) || 0,
+      total_income: Number(inputs.total_income) || 0,
+      dti_threshold_bp: Number(inputs.dti_threshold_bp) || 4000,
+      manual: true // <--- Add this!
+    };
 
     console.log("Sending payload to backend:", payload);
 
