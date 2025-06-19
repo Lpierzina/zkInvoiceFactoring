@@ -73,6 +73,8 @@ total_sales = ${toInt(total_sales, 1)}
 concentration_threshold_bp = ${toInt(concentration_threshold_bp, isManual ? 10000 : 5000)}
 `;
 
+console.log('\n[DEBUG] Writing Prover.toml with:\n' + toml);
+
   const proverPath = path.join(RELIABILITY_DIR, "Prover.toml");
   fs.writeFileSync(proverPath, toml);
 
