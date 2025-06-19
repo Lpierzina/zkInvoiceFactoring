@@ -196,6 +196,8 @@ async function autoGenerateProof() {
       threshold_percent: Number(inputs.threshold_percent) || 90,
       dti_threshold_bp: Number(inputs.dti_threshold_bp) || 4000
     };
+    
+console.log("Sending payload to backend:", payload);
 
     const res = await fetch(API_URL, {
       method: "POST",
