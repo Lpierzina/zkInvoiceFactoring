@@ -172,32 +172,45 @@ async function autoGenerateProof() {
   try {
     // If QuickBooks is connected, send all fields for scorecard
     const payload = qbConnected
-  ? {
-      total_invoices: Number(inputs.total_invoices) || 0,
-      paid_invoices: Number(inputs.paid_invoices) || 0,
-      threshold_percent: Number(inputs.threshold_percent) || 90,
-      total_debt: Number(inputs.total_debt) || 0,
-      total_income: Number(inputs.total_income) || 0,
-      dti_threshold_bp: Number(inputs.dti_threshold_bp) || 4000,
-      dso: Number(inputs.dso) || 0,
-      dso_threshold: Number(inputs.dso_threshold) || 45,
-      ar_over60: Number(inputs.ar_over60) || 0,
-      ar_total: Number(inputs.ar_total) || 0,
-      ar_pct_threshold_bp: Number(inputs.ar_pct_threshold_bp) || 1000,
-      revenue12mo: Number(inputs.revenue12mo) || 0,
-      revenue_threshold: Number(inputs.revenue_threshold) || 120000,
-      largest_cust_sales: Number(inputs.largest_cust_sales) || 0,
-      total_sales: Number(inputs.total_sales) || 0,
-      concentration_threshold_bp: Number(inputs.concentration_threshold_bp) || 5000
-    }
-  : {
-      total_invoices: Number(inputs.total_invoices) || 0,
-      paid_invoices: Number(inputs.paid_invoices) || 0,
-      threshold_percent: Number(inputs.threshold_percent) || 90,
-      dti_threshold_bp: Number(inputs.dti_threshold_bp) || 4000
-    };
-    
-console.log("Sending payload to backend:", payload);
+      ? {
+          total_invoices: Number(inputs.total_invoices) || 0,
+          paid_invoices: Number(inputs.paid_invoices) || 0,
+          threshold_percent: Number(inputs.threshold_percent) || 90,
+          total_debt: Number(inputs.total_debt) || 0,
+          total_income: Number(inputs.total_income) || 0,
+          dti_threshold_bp: Number(inputs.dti_threshold_bp) || 4000,
+          dso: Number(inputs.dso) || 0,
+          dso_threshold: Number(inputs.dso_threshold) || 45,
+          ar_over60: Number(inputs.ar_over60) || 0,
+          ar_total: Number(inputs.ar_total) || 0,
+          ar_pct_threshold_bp: Number(inputs.ar_pct_threshold_bp) || 1000,
+          revenue12mo: Number(inputs.revenue12mo) || 0,
+          revenue_threshold: Number(inputs.revenue_threshold) || 120000,
+          largest_cust_sales: Number(inputs.largest_cust_sales) || 0,
+          total_sales: Number(inputs.total_sales) || 0,
+          concentration_threshold_bp: Number(inputs.concentration_threshold_bp) || 5000
+        }
+      // --- THIS BLOCK IS FOR MANUAL MODE ONLY ---
+      : {
+          total_invoices: Number(inputs.total_invoices) || 0,
+          paid_invoices: Number(inputs.paid_invoices) || 0,
+          threshold_percent: Number(inputs.threshold_percent) || 90,
+          total_debt: Number(inputs.total_debt) || 0,
+          total_income: Number(inputs.total_income) || 0,
+          dti_threshold_bp: Number(inputs.dti_threshold_bp) || 4000,
+          dso: 0, // send as zero
+          dso_threshold: 0,
+          ar_over60: 0,
+          ar_total: 0,
+          ar_pct_threshold_bp: 0,
+          revenue12mo: 0,
+          revenue_threshold: 0,
+          largest_cust_sales: 0,
+          total_sales: 0,
+          concentration_threshold_bp: 0
+        };
+
+    console.log("Sending payload to backend:", payload);
 
     const res = await fetch(API_URL, {
       method: "POST",
@@ -207,14 +220,13 @@ console.log("Sending payload to backend:", payload);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
     setProof(data);
-    // REMOVE THIS LINE! ⬇️
-    // if (qbConnected) setScorecard(data.scorecard);
   } catch (err) {
     setError(err.message);
   } finally {
     setLoading(false);
   }
 }
+
 
 
 
